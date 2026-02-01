@@ -30,7 +30,13 @@ function isRateLimited(ip: string): boolean {
 
 async function fetchAgents(): Promise<AgentNode[]> {
   try {
+    const headers: Record<string, string> = {};
+    // Optional server-side key (do not hardcode secrets).
+    const apiKey = process.env.OPENWORK_API_KEY;
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
     const response = await fetch('https://www.openwork.bot/api/agents', {
+      headers,
       next: { revalidate: CACHE_TTL }
     });
     
