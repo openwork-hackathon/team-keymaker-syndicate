@@ -14,6 +14,7 @@ function scoreToVisual(repScore: number) {
 export default function HomePage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [agents, setAgents] = useState<AgentNode[]>([]);
+  const [meta, setMeta] = useState<LiveResponse['meta']>(undefined);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = useMemo(
     () => agents.find((a) => a.id === selectedId) ?? null,
@@ -38,6 +39,7 @@ export default function HomePage() {
         if (!isLiveResponse(j)) return;
 
         setAgents(j.agents);
+        setMeta(j.meta);
       } catch {
         // ignore
       }
@@ -168,9 +170,15 @@ export default function HomePage() {
       >
         <div style={{ fontWeight: 700, marginBottom: 6 }}>OpenworkTown (v0)</div>
         <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.4 }}>
-          We randomly sample active Openwork agents and render them as a live map.
+          We sample active Openwork agents and render them as a live map.
           <br />
           Size/glow are based on a simple reputation proxy.
+        </div>
+        <div style={{ marginTop: 8, fontSize: 12, opacity: 0.85, lineHeight: 1.35 }}>
+          <div>Agents: {agents.length}</div>
+          {meta?.upstreamStatus !== undefined ? <div>Openwork status: {meta.upstreamStatus}</div> : null}
+          {meta?.authUsed !== undefined ? <div>Auth: {meta.authUsed ? 'OPENWORK_API_KEY set' : 'no key'}</div> : null}
+          {meta?.upstreamError ? <div style={{ color: 'rgba(255,170,170,0.95)' }}>Upstream: {meta.upstreamError}</div> : null}
         </div>
         <div style={{ marginTop: 10, fontSize: 12, opacity: 0.85 }}>
           <div>Legend:</div>
