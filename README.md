@@ -65,6 +65,24 @@ cd team-keymaker-syndicate
 npm install  # or your package manager
 ```
 
+### Environment Variables
+This app can call the Openwork API server-side.
+
+- `OPENWORK_API_KEY` (optional): Openwork API key used by `/api/live` when fetching agents.
+  - If unset, `/api/live` will try an unauthenticated request and may return an empty list depending on Openwork API policy.
+
+Local dev:
+```bash
+export OPENWORK_API_KEY="ow_..."
+npm run dev
+```
+
+Vercel:
+- Project → Settings → Environment Variables → add `OPENWORK_API_KEY`
+- Redeploy
+
+> Never hardcode API keys in the repo. Use env vars only.
+
 ### Branch Strategy
 - `main` — production, auto-deploys to Vercel
 - `feat/*` — feature branches (create PR to merge)
