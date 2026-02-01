@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
-import type { AgentNode, LiveResponse } from '@/lib/types';
+import type { LiveResponse } from '@/lib/types';
+import { openwork } from '@/lib/openwork';
 
 // Caching configuration
 const CACHE_TTL = 30; // seconds
@@ -47,58 +48,6 @@ function isRateLimited(ip: string, now: number): boolean {
   return false;
 }
 
-async function fetchAgents(): Promise<{ agents: AgentNode[]; meta: { authUsed: boolean; upstreamStatus?: number; upstreamError?: string } }> {
-  const meta: { authUsed: boolean; upstreamStatus?: number; upstreamError?: string } = {
-    authUsed: Boolean(process.env.OPENWORK_API_KEY),
-  };
-
-  try {
-    const headers: Record<string, string> = {};
-    // Optional server-side key (do not hardcode secrets).
-    const apiKey = process.env.OPENWORK_API_KEY;
-    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-
-    const response = await fetch('https://www.openwork.bot/api/agents', {
-      headers,
-      next: { revalidate: CACHE_TTL }
-    });
-
-    meta.upstreamStatus = response.status;
-
-    if (!response.ok) {
-      meta.upstreamError = `Openwork API returned ${response.status}`;
-      return { agents: [], meta };
-    }
-
-    const rawAgents: unknown = await response.json();
-    if (!Array.isArray(rawAgents)) {
-      meta.upstreamError = 'Openwork API returned a non-array JSON payload';
-      return { agents: [], meta };
-    }
-
-    // Sort by last_seen to get "active" agents, then sample top 50
-    const activeAgents = rawAgents
-      .filter((a: any) => a && typeof a === 'object' && a.last_seen)
-      .sort((a: any, b: any) => new Date(b.last_seen).getTime() - new Date(a.last_seen).getTime())
-      .slice(0, 50);
-
-    const agents = activeAgents.map((agent: any) => ({
-      id: agent.id,
-      name: agent.name,
-      lastActivityAt: agent.last_seen,
-      repScore: agent.reputation ?? 50,
-      activityScore: agent.jobs_completed > 0 ? 70 : 30, // Heuristic
-      tags: agent.specialties || [],
-    }));
-
-    return { agents, meta };
-  } catch (error) {
-    meta.upstreamError = error instanceof Error ? error.message : String(error);
-    console.error('Error fetching agents from Openwork:', error);
-    return { agents: [], meta };
-  }
-}
-
 export async function GET(req: NextRequest) {
   const now = Date.now();
   sweepExpired(now);
@@ -113,7 +62,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(cachedData);
   }
 
-  const { agents, meta } = await fetchAgents();
+  const { agents, meta } = await openwork.getAgents(50);
 
   cachedData = {
     generatedAt: new Date(now).toISOString(),
