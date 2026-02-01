@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentNode, LiveResponse } from '@/lib/types';
+import { isLiveResponse } from '@/lib/types';
 
 function scoreToVisual(repScore: number) {
   const radius = Math.max(6, Math.min(32, Math.log(repScore + 1) * 6));
@@ -24,8 +25,18 @@ export default function HomePage() {
     async function tick() {
       try {
         const r = await fetch('/api/live', { cache: 'no-store' });
-        const j = (await r.json()) as LiveResponse;
+        if (!r.ok) {
+          // e.g. 429 rate limited or 5xx
+          if (!alive) return;
+          return;
+        }
+
+        const j = (await r.json()) as unknown;
         if (!alive) return;
+
+        // Runtime guard to avoid UI crashes on unexpected payloads
+        if (!isLiveResponse(j)) return;
+
         setAgents(j.agents);
       } catch {
         // ignore
