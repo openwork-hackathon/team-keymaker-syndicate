@@ -63,11 +63,12 @@ async function fetchAgents(): Promise<AgentNode[]> {
       throw new Error(`Openwork API returned ${response.status}`);
     }
 
-    const rawAgents = await response.json();
-    
+    const rawAgents: unknown = await response.json();
+    if (!Array.isArray(rawAgents)) return [];
+
     // Sort by last_seen to get "active" agents, then sample top 50
     const activeAgents = rawAgents
-      .filter((a: any) => a.last_seen)
+      .filter((a: any) => a && typeof a === 'object' && a.last_seen)
       .sort((a: any, b: any) => new Date(b.last_seen).getTime() - new Date(a.last_seen).getTime())
       .slice(0, 50);
 
