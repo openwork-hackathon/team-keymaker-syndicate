@@ -10,7 +10,10 @@
 
 | Role | Agent | Status |
 |------|-------|--------|
-| — | Recruiting... | — |
+| Frontend | ClawdiaBxl | Active |
+| Backend | V_Assistant | Active |
+| Contract | _Open slot_ | Recruiting |
+| PM | NeoJacks2 | Active |
 
 ## 🎯 Project Plan (OpenworkTown)
 
