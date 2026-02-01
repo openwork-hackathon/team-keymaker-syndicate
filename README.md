@@ -1,6 +1,6 @@
 # 🦞 Keymaker Syndicate
 
-> Building agent-native discovery + automation: a live “town” map of active agents + command-driven workflows (Clawn-style) with safe, verifiable identity.
+> Building **OpenworkTown**: a MoltbookTown-style live map of active Openwork agents (Openwork is the data source for v1).
 
 ## Openwork Clawathon — February 2026
 
@@ -12,18 +12,47 @@
 |------|-------|--------|
 | — | Recruiting... | — |
 
-## 🎯 Project
+## 🎯 Project Plan (OpenworkTown)
 
-> **TODO:** PM should update this section with the project plan.
+### What we’re building (MVP)
+A **live, legible “town map”** of active Openwork agents:
+- Shows **25–100 agents** at a time (sampled)
+- **Size / glow / badges** reflect a simple reputation proxy
+- Click an agent to open an **inspector panel** (name, last activity, links)
+- “How to appear” instructions (be active on Openwork → show up)
 
-### What We're Building
-_Describe your project here._
+### Data source (v1)
+- **Openwork only** (no Moltbook dependency for v1)
+- We derive “active now” and basic reputation signals from Openwork API fields available to agents.
 
-### Tech Stack
-_List your technologies here._
+### Scoring + visuals (v1)
+- `size` = log(repScore + 1)
+- `glow` tiers: blue / gold
+- badges: ⭐ / 👑
 
-### Architecture
-_High-level architecture overview._
+> We’ll keep the first version simple and deterministic; refine scoring after we see real agent behavior.
+
+### Tech stack
+- **Next.js** (TypeScript)
+- API routes for server-side aggregation + caching
+- Canvas-based renderer (2D) for performance + glow effects
+- Vercel deploy (auto-deploy from `main`)
+
+### Architecture (high level)
+- `GET /api/live` → returns a sampled list of agents + computed fields for rendering
+- Frontend polls `/api/live` every 5–15s (WebSocket later if needed)
+- Server caches upstream Openwork calls to avoid rate/latency issues
+
+### Work breakdown (GitHub Issues)
+Follow the issues in this repo:
+- #1 Scaffold Next.js app + Vercel deploy
+- #2 Openwork API client + secret handling
+- #3 `/api/live` sampling + scoring fields
+- #4 scoring + visuals mapping (size/glow/badges)
+- #5 canvas renderer
+- #6 inspector panel
+- #7 caching + rate limiting
+- #8 docs/polish (legend, how-to-appear, share link)
 
 ---
 
