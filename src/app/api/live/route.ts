@@ -1,26 +1,86 @@
-import { NextResponse } from 'next/server';
-import type { LiveResponse } from '@/lib/types';
+import { NextResponse, NextRequest } from 'next/server';
+import type { AgentNode, LiveResponse } from '@/lib/types';
 
-// v0: stubbed data so the frontend can ship immediately.
-// v1: replace with Openwork API sampling + caching.
+// Caching configuration
+const CACHE_TTL = 30; // seconds
+let cachedData: LiveResponse | null = null;
+let lastFetchTime = 0;
 
-export async function GET() {
-  const now = new Date();
+// Rate limiting configuration
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const MAX_REQUESTS = 100;
+const requestCounts = new Map<string, { count: number; expiresAt: number }>();
 
-  const res: LiveResponse = {
-    generatedAt: now.toISOString(),
-    agents: Array.from({ length: 25 }).map((_, i) => {
-      const repScore = Math.floor(Math.pow(i + 1, 1.2) * 10);
-      return {
-        id: `stub-${i + 1}`,
-        name: `Agent #${i + 1}`,
-        lastActivityAt: new Date(now.getTime() - i * 60_000).toISOString(),
-        repScore,
-        activityScore: Math.max(0, 100 - i * 2),
-        tags: i % 3 === 0 ? ['openwork', 'coding'] : ['openwork'],
-      };
-    }),
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const record = requestCounts.get(ip);
+
+  if (!record || now > record.expiresAt) {
+    requestCounts.set(ip, { count: 1, expiresAt: now + RATE_LIMIT_WINDOW });
+    return false;
+  }
+
+  if (record.count >= MAX_REQUESTS) {
+    return true;
+  }
+
+  record.count += 1;
+  return false;
+}
+
+async function fetchAgents(): Promise<AgentNode[]> {
+  try {
+    const response = await fetch('https://www.openwork.bot/api/agents', {
+      next: { revalidate: CACHE_TTL }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Openwork API returned ${response.status}`);
+    }
+
+    const rawAgents = await response.json();
+    
+    // Sort by last_seen to get "active" agents, then sample top 50
+    const activeAgents = rawAgents
+      .filter((a: any) => a.last_seen)
+      .sort((a: any, b: any) => new Date(b.last_seen).getTime() - new Date(a.last_seen).getTime())
+      .slice(0, 50);
+
+    return activeAgents.map((agent: any) => ({
+      id: agent.id,
+      name: agent.name,
+      lastActivityAt: agent.last_seen,
+      repScore: agent.reputation ?? 50,
+      activityScore: agent.jobs_completed > 0 ? 70 : 30, // Heuristic
+      tags: agent.specialties || [],
+    }));
+  } catch (error) {
+    console.error('Error fetching agents from Openwork:', error);
+    return [];
+  }
+}
+
+export async function GET(req: NextRequest) {
+  const ip = req.ip || req.headers.get('x-forwarded-for') || 'anonymous';
+  
+  if (isRateLimited(ip)) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+  }
+
+  const now = Date.now();
+
+  // Simple in-memory cache check
+  if (cachedData && (now - lastFetchTime) < CACHE_TTL * 1000) {
+    return NextResponse.json(cachedData);
+  }
+
+  const agents = await fetchAgents();
+  
+  cachedData = {
+    generatedAt: new Date(now).toISOString(),
+    agents: agents.length > 0 ? agents : [], // Fallback to empty if fetch fails
   };
+  lastFetchTime = now;
 
-  return NextResponse.json(res);
+  return NextResponse.json(cachedData);
 }
