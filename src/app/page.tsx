@@ -112,6 +112,87 @@ function rgba(c: { r: number; g: number; b: number }, a: number) {
   return `rgba(${c.r}, ${c.g}, ${c.b}, ${a})`;
 }
 
+type SpritePalette = {
+  skin: string;
+  hair: string;
+  cloth: string;
+  metal: string;
+  boot: string;
+};
+
+function tierToPalette(tier: Tier): SpritePalette {
+  switch (tier) {
+    case 'legendary':
+      return { skin: '#F2C9A0', hair: '#1b120d', cloth: '#F5C542', metal: '#ECEEF4', boot: '#131826' };
+    case 'notable':
+      return { skin: '#F2C9A0', hair: '#152031', cloth: '#59B0FF', metal: '#E3E6EF', boot: '#131826' };
+    case 'rising':
+      return { skin: '#F2C9A0', hair: '#231534', cloth: '#B07AFF', metal: '#E3E6EF', boot: '#131826' };
+    default:
+      return { skin: '#F2C9A0', hair: '#2b2018', cloth: '#C8CBD6', metal: '#D7DAE4', boot: '#131826' };
+  }
+}
+
+function drawPixel(ctx: CanvasRenderingContext2D, x: number, y: number, px: number, py: number, size: number) {
+  ctx.fillRect(x + px * size, y + py * size, size, size);
+}
+
+function drawRpgSprite(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, tier: Tier, frame: number) {
+  // 16x16 pixel sprite. x,y = top-left in screen space.
+  const size = Math.max(1, Math.floor(1.35 * scale));
+  const pal = tierToPalette(tier);
+
+  const bounce = frame % 2 === 0 ? 0 : 1;
+  const footL = frame % 4 < 2 ? 1 : 0;
+  const footR = frame % 4 < 2 ? 0 : 1;
+
+  const ox = x;
+  const oy = y - bounce * size;
+
+  // head/hair
+  ctx.fillStyle = pal.hair;
+  for (let px = 5; px <= 10; px++) drawPixel(ctx, ox, oy, px, 1, size);
+  for (let px = 4; px <= 11; px++) drawPixel(ctx, ox, oy, px, 2, size);
+
+  // face
+  ctx.fillStyle = pal.skin;
+  for (let py = 3; py <= 6; py++) for (let px = 5; px <= 10; px++) drawPixel(ctx, ox, oy, px, py, size);
+
+  // eyes
+  ctx.fillStyle = '#0b1020';
+  drawPixel(ctx, ox, oy, 6, 5, size);
+  drawPixel(ctx, ox, oy, 9, 5, size);
+
+  // body
+  ctx.fillStyle = pal.cloth;
+  for (let py = 7; py <= 12; py++) for (let px = 5; px <= 10; px++) drawPixel(ctx, ox, oy, px, py, size);
+  for (let px = 4; px <= 11; px++) drawPixel(ctx, ox, oy, px, 7, size);
+
+  // belt
+  ctx.fillStyle = pal.metal;
+  for (let px = 6; px <= 9; px++) drawPixel(ctx, ox, oy, px, 10, size);
+
+  // legs
+  ctx.fillStyle = '#222733';
+  for (let py = 13; py <= 14; py++) {
+    drawPixel(ctx, ox, oy, 6, py, size);
+    drawPixel(ctx, ox, oy, 9, py, size);
+  }
+
+  // feet (walk)
+  ctx.fillStyle = pal.boot;
+  drawPixel(ctx, ox, oy, 5 + footL, 15, size);
+  drawPixel(ctx, ox, oy, 8 + footR, 15, size);
+
+  // crown flair
+  if (tier === 'legendary') {
+    ctx.fillStyle = '#F5C542';
+    drawPixel(ctx, ox, oy, 6, 0, size);
+    drawPixel(ctx, ox, oy, 8, 0, size);
+    drawPixel(ctx, ox, oy, 7, 1, size);
+  }
+}
+
 function computeLayout(agents: AgentNode[], prev?: Map<string, LayoutNode>): Map<string, LayoutNode> {
   // World bounds; large enough to pan around.
   const WORLD_W = 2400;
@@ -574,6 +655,11 @@ export default function HomePage() {
           ctx.fillStyle = 'rgba(0,0,0,0.7)';
           ctx.fillText(badge, p.x, y0 + 16 * vp.scale);
         }
+
+        // Pixel RPG sprite (fun layer)
+        const tier = scoreToTier(a.repScore);
+        const frame = Math.floor(t / 160 + (hashStringToU32(a.id) % 9)) % 8;
+        drawRpgSprite(ctx, p.x - 8 * Math.max(1, Math.floor(1.35 * clamp(vp.scale, 0.7, 2.0))), y0 - 18 * vp.scale, clamp(vp.scale, 0.7, 2.0), tier, frame);
 
         // label fades with zoom
         const labelAlpha = clamp((vp.scale - 0.6) / 0.6, 0, 1);
