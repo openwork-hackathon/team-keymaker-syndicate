@@ -31,6 +31,8 @@ type MotionState = {
   nextWanderAt: number;
 };
 
+type TileKind = 'grass' | 'path' | 'water';
+
 type Tier = 'legendary' | 'notable' | 'rising' | 'new';
 
 type District = {
@@ -329,6 +331,8 @@ export default function HomePage() {
   const agentsRef = useRef<AgentNode[]>([]);
   const motionRef = useRef<Map<string, MotionState>>(new Map());
   const lastFrameAtRef = useRef<number>(0);
+  const tileRef = useRef<{ tileSize: number; cols: number; rows: number; map: TileKind[]; } | null>(null);
+  const tileCanvasRef = useRef<{ grass?: HTMLCanvasElement; path?: HTMLCanvasElement; water?: HTMLCanvasElement }>( {} );
   const [loading, setLoading] = useState(true);
 
   const viewportRef = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
@@ -558,45 +562,113 @@ export default function HomePage() {
         st.y += st.vy * dt;
       }
 
-      // Ground plane: terrain gradient + texture (kills the "space" vibe)
-      ctx.clearRect(0, 0, W, H);
-      const bg = ctx.createLinearGradient(0, 0, 0, H);
-      bg.addColorStop(0, '#0b1224');
-      bg.addColorStop(1, '#05070f');
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, W, H);
+      // Ground plane: Zelda-like tile map (procedural, cached tiles)
+      const WORLD_W = 2400;
+      const WORLD_H = 1600;
+      const TILE = 32;
 
-      // Subtle noise texture (screen-space)
-      ctx.save();
-      ctx.globalAlpha = 0.06;
-      for (let i = 0; i < 900; i++) {
-        const x = (i * 1103) % W;
-        const y = (i * 547) % H;
-        const a = ((i * 97) % 100) / 100;
-        ctx.fillStyle = a > 0.5 ? 'rgba(255,255,255,1)' : 'rgba(0,0,0,1)';
-        ctx.fillRect(x, y, 1, 1);
+      // Initialize tile canvases once
+      const tiles = tileCanvasRef.current;
+      function ensureTile(kind: 'grass' | 'path' | 'water', base: string, accents: string[]) {
+        if (tiles[kind]) return tiles[kind];
+        const c = document.createElement('canvas');
+        c.width = TILE; c.height = TILE;
+        const g = c.getContext('2d');
+        if (!g) return c;
+        // base
+        g.fillStyle = base;
+        g.fillRect(0,0,TILE,TILE);
+        // speckles
+        const rand = mulberry32(hashStringToU32('tile-'+kind));
+        for (let i=0;i<160;i++){
+          const x = Math.floor(rand()*TILE);
+          const y = Math.floor(rand()*TILE);
+          const a = rand();
+          g.fillStyle = accents[a>0.66?2:a>0.33?1:0];
+          g.fillRect(x,y,1,1);
+        }
+        // subtle border
+        g.globalAlpha = 0.12;
+        g.strokeStyle = 'rgba(0,0,0,1)';
+        g.strokeRect(0.5,0.5,TILE-1,TILE-1);
+        g.globalAlpha = 1;
+        tiles[kind]=c;
+        return c;
       }
-      ctx.restore();
+      const grassTile = ensureTile('grass', '#0f2a1f', ['rgba(20,70,40,1)','rgba(14,45,30,1)','rgba(35,95,60,1)']);
+      const pathTile = ensureTile('path', '#3a2f22', ['rgba(80,60,40,1)','rgba(45,35,25,1)','rgba(100,80,55,1)']);
+      const waterTile = ensureTile('water', '#0a2038', ['rgba(30,90,140,1)','rgba(10,35,60,1)','rgba(50,140,190,1)']);
 
-      // Very faint map grid (screen-space)
-      ctx.save();
-      ctx.globalAlpha = 0.06;
-      ctx.strokeStyle = 'rgba(255,255,255,1)';
-      ctx.lineWidth = 1;
-      const grid = 120;
-      for (let x = 0; x <= W; x += grid) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, H);
-        ctx.stroke();
+      // Initialize world tilemap once
+      if (!tileRef.current) {
+        const cols = Math.floor(WORLD_W / TILE);
+        const rows = Math.floor(WORLD_H / TILE);
+        const map = Array(cols*rows).fill('grass');
+
+        const set = (x: number, y: number, k: TileKind) => { if (x < 0 || y < 0 || x >= cols || y >= rows) return; map[y * cols + x] = k; };
+        const line = (x0: number, y0: number, x1: number, y1: number, k: TileKind) => {
+          const dx=Math.abs(x1-x0), dy=Math.abs(y1-y0);
+          const sx=x0<x1?1:-1, sy=y0<y1?1:-1;
+          let err=dx-dy;
+          let x=x0,y=y0;
+          for(;;){
+            for(let ox=-1;ox<=1;ox++) for(let oy=-1;oy<=1;oy++) set(x+ox,y+oy,k);
+            if(x===x1&&y===y1) break;
+            const e2=2*err;
+            if(e2>-dy){ err-=dy; x+=sx; }
+            if(e2<dx){ err+=dx; y+=sy; }
+          }
+        };
+
+        // Water pond near outskirts
+        const cx=12, cy=42;
+        for(let y=cy-5;y<=cy+5;y++) for(let x=cx-7;x<=cx+7;x++){
+          const d=((x-cx)*(x-cx))/49 + ((y-cy)*(y-cy))/25;
+          if(d<=1) set(x,y,'water');
+        }
+
+        // Paths connecting landmarks/districts
+        const docks = { x: Math.floor(460/TILE), y: Math.floor(1360/TILE) };
+        const hall = { x: Math.floor(1080/TILE), y: Math.floor(760/TILE) };
+        const market = { x: Math.floor(860/TILE), y: Math.floor(980/TILE) };
+        const mint = { x: Math.floor(1520/TILE), y: Math.floor(1020/TILE) };
+        line(docks.x,docks.y,hall.x,hall.y,'path');
+        line(market.x,market.y,hall.x,hall.y,'path');
+        line(mint.x,mint.y,hall.x,hall.y,'path');
+        line(market.x,market.y,docks.x,docks.y,'path');
+
+        tileRef.current = { tileSize: TILE, cols, rows, map };
       }
-      for (let y = 0; y <= H; y += grid) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(W, y);
-        ctx.stroke();
+
+      // Paint visible tiles only (screen-space, but using world->screen mapping)
+      ctx.clearRect(0,0,W,H);
+      const tm = tileRef.current;
+      if (tm) {
+        const cols = tm.cols, rows = tm.rows;
+        const start = screenToWorld(vp, -50, -50);
+        const end = screenToWorld(vp, W+50, H+50);
+        const x0 = clamp(Math.floor(start.x / TILE), 0, cols-1);
+        const y0 = clamp(Math.floor(start.y / TILE), 0, rows-1);
+        const x1 = clamp(Math.floor(end.x / TILE)+1, 0, cols);
+        const y1 = clamp(Math.floor(end.y / TILE)+1, 0, rows);
+
+        for(let y=y0;y<y1;y++){
+          for(let x=x0;x<x1;x++){
+            const k = tm.map[y*cols+x];
+            const img = k==='path'?pathTile: k==='water'?waterTile: grassTile;
+            const sp = worldToScreen(vp, x*TILE, y*TILE);
+            const sz = TILE*vp.scale;
+            ctx.drawImage(img, sp.x, sp.y, sz, sz);
+          }
+        }
+
+        // vignette
+        const vg = ctx.createRadialGradient(W*0.5, H*0.5, Math.min(W,H)*0.2, W*0.5, H*0.5, Math.max(W,H)*0.7);
+        vg.addColorStop(0, 'rgba(0,0,0,0)');
+        vg.addColorStop(1, 'rgba(0,0,0,0.35)');
+        ctx.fillStyle = vg;
+        ctx.fillRect(0,0,W,H);
       }
-      ctx.restore();
 
       // District haze blobs + labels
       const districts: District[] = [
@@ -755,6 +827,18 @@ export default function HomePage() {
         const x0 = p.x - base / 2;
         const y0 = p.y - height / 2;
 
+
+        // Minimal ground shadow (small dot)
+        ctx.save();
+        ctx.globalAlpha = 0.25;
+        ctx.fillStyle = 'rgba(0,0,0,1)';
+        ctx.beginPath();
+        ctx.ellipse(p.x, p.y + 12 * vp.scale, 6 * vp.scale, 2.2 * vp.scale, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Skip drawing the building rectangle; sprites are primary
+
         // glow aura
         if (glow !== 'none') {
           ctx.beginPath();
@@ -765,33 +849,7 @@ export default function HomePage() {
           ctx.fillStyle = col;
           ctx.fill();
         }
-
-        // building body
-        const r2 = Math.max(6, 10 * vp.scale);
-        ctx.save();
-        ctx.beginPath();
-        // rounded rect
-        const w = base;
-        const h = height;
-        const rr = Math.min(r2, w / 2, h / 2);
-        ctx.moveTo(x0 + rr, y0);
-        ctx.lineTo(x0 + w - rr, y0);
-        ctx.quadraticCurveTo(x0 + w, y0, x0 + w, y0 + rr);
-        ctx.lineTo(x0 + w, y0 + h - rr);
-        ctx.quadraticCurveTo(x0 + w, y0 + h, x0 + w - rr, y0 + h);
-        ctx.lineTo(x0 + rr, y0 + h);
-        ctx.quadraticCurveTo(x0, y0 + h, x0, y0 + h - rr);
-        ctx.lineTo(x0, y0 + rr);
-        ctx.quadraticCurveTo(x0, y0, x0 + rr, y0);
-
-        ctx.fillStyle = isSelected ? 'rgba(255,255,255,0.58)' : 'rgba(255,255,255,0.45)';
-        ctx.fill();
-
-        // subtle top highlight
-        ctx.globalAlpha = 0.22;
-        ctx.fillStyle = 'rgba(255,255,255,1)';
-        ctx.fillRect(x0 + 2, y0 + 2, w - 4, 2);
-        ctx.restore();
+        // building body removed
 
         // outline for hover/selected
         if (isHovered || isSelected) {
