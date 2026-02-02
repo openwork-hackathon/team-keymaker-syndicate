@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentNode, LiveResponse } from '@/lib/types';
 import { isLiveResponse } from '@/lib/types';
+import { KENNEY_TILE_SIZE, atlasSrcRect, makeWorldTilemap, TILESET, type TileKind, type WorldTilemap } from '@/lib/tilemap';
 
 type Star = { x: number; y: number; r: number; a: number };
 
@@ -30,8 +31,6 @@ type MotionState = {
   mode: 'spawning' | 'wandering';
   nextWanderAt: number;
 };
-
-type TileKind = 'grass' | 'path' | 'water';
 
 type Tier = 'legendary' | 'notable' | 'rising' | 'new';
 
@@ -331,8 +330,9 @@ export default function HomePage() {
   const agentsRef = useRef<AgentNode[]>([]);
   const motionRef = useRef<Map<string, MotionState>>(new Map());
   const lastFrameAtRef = useRef<number>(0);
-  const tileRef = useRef<{ tileSize: number; cols: number; rows: number; map: TileKind[]; } | null>(null);
-  const tileCanvasRef = useRef<{ grass?: HTMLCanvasElement; path?: HTMLCanvasElement; water?: HTMLCanvasElement }>( {} );
+    const tileRef = useRef<WorldTilemap | null>(null);
+  const tileImgRef = useRef<HTMLImageElement | null>(null);
+  const tileImgReadyRef = useRef(false);
   const [loading, setLoading] = useState(true);
 
   const viewportRef = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
@@ -470,6 +470,14 @@ export default function HomePage() {
 
       const ctx = canvas.getContext('2d');
       if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Load Kenney tileset image once
+      if (!tileImgRef.current) {
+        const img = new Image();
+        img.src = '/tiles/kenney-roguelike/roguelikeSheet.png';
+        img.onload = () => { tileImgReadyRef.current = true; };
+        tileImgRef.current = img;
+      }
     }
 
     resize();
@@ -562,113 +570,59 @@ export default function HomePage() {
         st.y += st.vy * dt;
       }
 
-      // Ground plane: Zelda-like tile map (procedural, cached tiles)
+      // Ground plane: Zelda-like tilemap using Kenney Roguelike (CC0)
       const WORLD_W = 2400;
       const WORLD_H = 1600;
-      const TILE = 32;
+      const TILE = 32; // world tile size in world units
 
-      // Initialize tile canvases once
-      const tiles = tileCanvasRef.current;
-      function ensureTile(kind: 'grass' | 'path' | 'water', base: string, accents: string[]) {
-        if (tiles[kind]) return tiles[kind];
-        const c = document.createElement('canvas');
-        c.width = TILE; c.height = TILE;
-        const g = c.getContext('2d');
-        if (!g) return c;
-        // base
-        g.fillStyle = base;
-        g.fillRect(0,0,TILE,TILE);
-        // speckles
-        const rand = mulberry32(hashStringToU32('tile-'+kind));
-        for (let i=0;i<160;i++){
-          const x = Math.floor(rand()*TILE);
-          const y = Math.floor(rand()*TILE);
-          const a = rand();
-          g.fillStyle = accents[a>0.66?2:a>0.33?1:0];
-          g.fillRect(x,y,1,1);
-        }
-        // subtle border
-        g.globalAlpha = 0.12;
-        g.strokeStyle = 'rgba(0,0,0,1)';
-        g.strokeRect(0.5,0.5,TILE-1,TILE-1);
-        g.globalAlpha = 1;
-        tiles[kind]=c;
-        return c;
-      }
-      const grassTile = ensureTile('grass', '#0f2a1f', ['rgba(20,70,40,1)','rgba(14,45,30,1)','rgba(35,95,60,1)']);
-      const pathTile = ensureTile('path', '#3a2f22', ['rgba(80,60,40,1)','rgba(45,35,25,1)','rgba(100,80,55,1)']);
-      const waterTile = ensureTile('water', '#0a2038', ['rgba(30,90,140,1)','rgba(10,35,60,1)','rgba(50,140,190,1)']);
-
-      // Initialize world tilemap once
       if (!tileRef.current) {
-        const cols = Math.floor(WORLD_W / TILE);
-        const rows = Math.floor(WORLD_H / TILE);
-        const map = Array(cols*rows).fill('grass');
-
-        const set = (x: number, y: number, k: TileKind) => { if (x < 0 || y < 0 || x >= cols || y >= rows) return; map[y * cols + x] = k; };
-        const line = (x0: number, y0: number, x1: number, y1: number, k: TileKind) => {
-          const dx=Math.abs(x1-x0), dy=Math.abs(y1-y0);
-          const sx=x0<x1?1:-1, sy=y0<y1?1:-1;
-          let err=dx-dy;
-          let x=x0,y=y0;
-          for(;;){
-            for(let ox=-1;ox<=1;ox++) for(let oy=-1;oy<=1;oy++) set(x+ox,y+oy,k);
-            if(x===x1&&y===y1) break;
-            const e2=2*err;
-            if(e2>-dy){ err-=dy; x+=sx; }
-            if(e2<dx){ err+=dx; y+=sy; }
-          }
-        };
-
-        // Water pond near outskirts
-        const cx=12, cy=42;
-        for(let y=cy-5;y<=cy+5;y++) for(let x=cx-7;x<=cx+7;x++){
-          const d=((x-cx)*(x-cx))/49 + ((y-cy)*(y-cy))/25;
-          if(d<=1) set(x,y,'water');
-        }
-
-        // Paths connecting landmarks/districts
-        const docks = { x: Math.floor(460/TILE), y: Math.floor(1360/TILE) };
-        const hall = { x: Math.floor(1080/TILE), y: Math.floor(760/TILE) };
-        const market = { x: Math.floor(860/TILE), y: Math.floor(980/TILE) };
-        const mint = { x: Math.floor(1520/TILE), y: Math.floor(1020/TILE) };
-        line(docks.x,docks.y,hall.x,hall.y,'path');
-        line(market.x,market.y,hall.x,hall.y,'path');
-        line(mint.x,mint.y,hall.x,hall.y,'path');
-        line(market.x,market.y,docks.x,docks.y,'path');
-
-        tileRef.current = { tileSize: TILE, cols, rows, map };
+        tileRef.current = makeWorldTilemap(WORLD_W, WORLD_H, TILE);
       }
 
-      // Paint visible tiles only (screen-space, but using world->screen mapping)
-      ctx.clearRect(0,0,W,H);
+      ctx.clearRect(0, 0, W, H);
+
       const tm = tileRef.current;
-      if (tm) {
-        const cols = tm.cols, rows = tm.rows;
-        const start = screenToWorld(vp, -50, -50);
-        const end = screenToWorld(vp, W+50, H+50);
-        const x0 = clamp(Math.floor(start.x / TILE), 0, cols-1);
-        const y0 = clamp(Math.floor(start.y / TILE), 0, rows-1);
-        const x1 = clamp(Math.floor(end.x / TILE)+1, 0, cols);
-        const y1 = clamp(Math.floor(end.y / TILE)+1, 0, rows);
+      const img = tileImgRef.current;
+      const imgReady = tileImgReadyRef.current && img;
 
-        for(let y=y0;y<y1;y++){
-          for(let x=x0;x<x1;x++){
-            const k = tm.map[y*cols+x];
-            const img = k==='path'?pathTile: k==='water'?waterTile: grassTile;
-            const sp = worldToScreen(vp, x*TILE, y*TILE);
-            const sz = TILE*vp.scale;
-            ctx.drawImage(img, sp.x, sp.y, sz, sz);
+      // visible tile bounds
+      const start = screenToWorld(vp, -50, -50);
+      const end = screenToWorld(vp, W + 50, H + 50);
+      const x0 = clamp(Math.floor(start.x / TILE), 0, tm.cols - 1);
+      const y0 = clamp(Math.floor(start.y / TILE), 0, tm.rows - 1);
+      const x1 = clamp(Math.floor(end.x / TILE) + 1, 0, tm.cols);
+      const y1 = clamp(Math.floor(end.y / TILE) + 1, 0, tm.rows);
+
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+          const k = tm.map[y * tm.cols + x] as TileKind;
+          const variant = TILESET[k];
+          // choose deterministic alt
+          const h = (x * 73856093) ^ (y * 19349663) ^ (k === 'path' ? 7 : k === 'water' ? 11 : 3);
+          const alts = variant.alt || [];
+          const pos = alts.length ? alts[Math.abs(h) % alts.length] : variant.base;
+
+          const { sx, sy, sw, sh } = atlasSrcRect(pos);
+          const sp = worldToScreen(vp, x * TILE, y * TILE);
+          const sz = TILE * vp.scale;
+
+          if (imgReady) {
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(img!, sx, sy, sw, sh, sp.x, sp.y, sz, sz);
+          } else {
+            // fallback until image loads
+            ctx.fillStyle = k === 'water' ? '#0a2038' : k === 'path' ? '#3a2f22' : '#0f2a1f';
+            ctx.fillRect(sp.x, sp.y, sz, sz);
           }
         }
-
-        // vignette
-        const vg = ctx.createRadialGradient(W*0.5, H*0.5, Math.min(W,H)*0.2, W*0.5, H*0.5, Math.max(W,H)*0.7);
-        vg.addColorStop(0, 'rgba(0,0,0,0)');
-        vg.addColorStop(1, 'rgba(0,0,0,0.35)');
-        ctx.fillStyle = vg;
-        ctx.fillRect(0,0,W,H);
       }
+
+      // subtle vignette
+      const vg = ctx.createRadialGradient(W * 0.5, H * 0.5, Math.min(W, H) * 0.2, W * 0.5, H * 0.5, Math.max(W, H) * 0.75);
+      vg.addColorStop(0, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(0,0,0,0.35)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
 
       // District haze blobs + labels
       const districts: District[] = [
