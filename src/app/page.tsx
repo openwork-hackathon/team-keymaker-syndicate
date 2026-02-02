@@ -200,7 +200,6 @@ export default function HomePage() {
 
   const layoutRef = useRef<Map<string, LayoutNode>>(new Map());
   const agentsRef = useRef<AgentNode[]>([]);
-  const starRef = useRef<Star[]>([]);
   const [loading, setLoading] = useState(true);
 
   const viewportRef = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
@@ -299,25 +298,6 @@ export default function HomePage() {
 
       const ctx = canvas.getContext('2d');
       if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      // Initialize deterministic starfield once (world-space)
-      if (starRef.current.length === 0) {
-        const stars: Star[] = [];
-        const seed = hashStringToU32('openworktown-stars');
-        const rand = mulberry32(seed);
-        const WORLD_W = 2400;
-        const WORLD_H = 1600;
-        const N = 700;
-        for (let i = 0; i < N; i++) {
-          stars.push({
-            x: rand() * WORLD_W,
-            y: rand() * WORLD_H,
-            r: 0.6 + rand() * 1.8,
-            a: 0.15 + rand() * 0.55,
-          });
-        }
-        starRef.current = stars;
-      }
     }
 
     resize();
@@ -342,32 +322,45 @@ export default function HomePage() {
       const nodes = layoutRef.current;
       const agents = agentsRef.current;
 
-      // Background
+      // Ground plane: terrain gradient + texture (kills the "space" vibe)
       ctx.clearRect(0, 0, W, H);
-      const g = ctx.createRadialGradient(W * 0.55, H * 0.18, 10, W * 0.55, H * 0.38, Math.max(W, H));
-      g.addColorStop(0, '#101b3c');
-      g.addColorStop(1, '#05070f');
-      ctx.fillStyle = g;
+      const bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, '#0b1224');
+      bg.addColorStop(1, '#05070f');
+      ctx.fillStyle = bg;
       ctx.fillRect(0, 0, W, H);
 
-      // Parallax stars in world space
-      const stars = starRef.current;
-      if (stars.length) {
-        ctx.save();
-        for (let i = 0; i < stars.length; i++) {
-          const s = stars[i]!;
-          const tw = 0.75 + 0.25 * Math.sin(t / 900 + i * 0.17);
-          const px = (s.x - vp.x * 0.25) * vp.scale;
-          const py = (s.y - vp.y * 0.25) * vp.scale;
-          if (px < -50 || py < -50 || px > W + 50 || py > H + 50) continue;
-          ctx.globalAlpha = s.a * tw;
-          ctx.fillStyle = i % 5 === 0 ? 'rgba(180,220,255,1)' : 'rgba(255,255,255,1)';
-          ctx.beginPath();
-          ctx.arc(px, py, s.r, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.restore();
+      // Subtle noise texture (screen-space)
+      ctx.save();
+      ctx.globalAlpha = 0.06;
+      for (let i = 0; i < 900; i++) {
+        const x = (i * 1103) % W;
+        const y = (i * 547) % H;
+        const a = ((i * 97) % 100) / 100;
+        ctx.fillStyle = a > 0.5 ? 'rgba(255,255,255,1)' : 'rgba(0,0,0,1)';
+        ctx.fillRect(x, y, 1, 1);
       }
+      ctx.restore();
+
+      // Very faint map grid (screen-space)
+      ctx.save();
+      ctx.globalAlpha = 0.06;
+      ctx.strokeStyle = 'rgba(255,255,255,1)';
+      ctx.lineWidth = 1;
+      const grid = 120;
+      for (let x = 0; x <= W; x += grid) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, H);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= H; y += grid) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(W, y);
+        ctx.stroke();
+      }
+      ctx.restore();
 
       // District haze blobs + labels
       const districts: District[] = [
@@ -459,50 +452,127 @@ export default function HomePage() {
 
       ctx.restore();
 
-      // Nodes
+      // Landmarks (world-space)
+      const landmarks = [
+        { name: 'Town Hall', icon: '🏛️', x: 1080, y: 760 },
+        { name: 'Market', icon: '🛒', x: 860, y: 980 },
+        { name: 'Mint Club', icon: '🪙', x: 1520, y: 1020 },
+      ];
+
+      ctx.save();
+      for (const lm of landmarks) {
+        const lp = worldToScreen(vp, lm.x, lm.y);
+        if (lp.x < -120 || lp.y < -120 || lp.x > W + 120 || lp.y > H + 120) continue;
+
+        // landmark glow
+        ctx.beginPath();
+        ctx.arc(lp.x, lp.y, 22 * vp.scale, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        ctx.fill();
+
+        ctx.font = String(Math.max(18, 22 * vp.scale)) + 'px system-ui';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(255,255,255,0.92)';
+        ctx.fillText(lm.icon, lp.x, lp.y);
+
+        if (vp.scale > 0.75) {
+          ctx.font = String(Math.max(12, 13 * vp.scale)) + 'px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+          ctx.textBaseline = 'top';
+          ctx.globalAlpha = 0.75;
+          ctx.fillText(lm.name, lp.x, lp.y + 18 * vp.scale);
+        }
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+
+      // Nodes (buildings)
       for (const a of agents) {
         const n = nodes.get(a.id);
         if (!n) continue;
         const { radius, glow, badge } = scoreToVisual(a.repScore);
         const p = worldToScreen(vp, n.x, n.y);
-        const r = radius * vp.scale;
 
-        if (p.x < -100 || p.y < -100 || p.x > W + 100 || p.y > H + 100) continue;
+        if (p.x < -160 || p.y < -160 || p.x > W + 160 || p.y > H + 160) continue;
 
         const isSelected = a.id === selectedId;
         const isHovered = a.id === hoveredId;
 
         const pulse = 0.65 + 0.35 * Math.sin(t / 800 + (hashStringToU32(a.id) % 1000) / 100);
 
+        // Building dimensions (screen-space)
+        const base = Math.max(10, radius * 1.15) * vp.scale;
+        const height = (10 + Math.log(a.repScore + 1) * 9) * vp.scale;
+        const x0 = p.x - base / 2;
+        const y0 = p.y - height / 2;
+
+        // soft shadow on ground
+        ctx.save();
+        ctx.globalAlpha = 0.22;
+        ctx.fillStyle = 'rgba(0,0,0,1)';
+        ctx.beginPath();
+        ctx.ellipse(p.x + 6 * vp.scale, p.y + height / 2 + 8 * vp.scale, base * 0.55, base * 0.22, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // glow aura
         if (glow !== 'none') {
           ctx.beginPath();
-          ctx.arc(p.x, p.y, r + 16 * vp.scale, 0, Math.PI * 2);
-          let col = `rgba(90, 170, 255, ${0.16 * pulse})`;
-          if (glow === 'gold') col = `rgba(255, 200, 80, ${0.18 * pulse})`;
-          if (glow === 'violet') col = `rgba(175, 120, 255, ${0.14 * pulse})`;
+          ctx.arc(p.x, p.y, base * 0.75 + 18 * vp.scale, 0, Math.PI * 2);
+          let col = 'rgba(90, 170, 255, ' + (0.16 * pulse) + ')';
+          if (glow === 'gold') col = 'rgba(255, 200, 80, ' + (0.18 * pulse) + ')';
+          if (glow === 'violet') col = 'rgba(175, 120, 255, ' + (0.14 * pulse) + ')';
           ctx.fillStyle = col;
           ctx.fill();
         }
 
+        // building body
+        const r2 = Math.max(6, 10 * vp.scale);
+        ctx.save();
+        ctx.beginPath();
+        // rounded rect
+        const w = base;
+        const h = height;
+        const rr = Math.min(r2, w / 2, h / 2);
+        ctx.moveTo(x0 + rr, y0);
+        ctx.lineTo(x0 + w - rr, y0);
+        ctx.quadraticCurveTo(x0 + w, y0, x0 + w, y0 + rr);
+        ctx.lineTo(x0 + w, y0 + h - rr);
+        ctx.quadraticCurveTo(x0 + w, y0 + h, x0 + w - rr, y0 + h);
+        ctx.lineTo(x0 + rr, y0 + h);
+        ctx.quadraticCurveTo(x0, y0 + h, x0, y0 + h - rr);
+        ctx.lineTo(x0, y0 + rr);
+        ctx.quadraticCurveTo(x0, y0, x0 + rr, y0);
+
+        ctx.fillStyle = isSelected ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.78)';
+        ctx.fill();
+
+        // subtle top highlight
+        ctx.globalAlpha = 0.22;
+        ctx.fillStyle = 'rgba(255,255,255,1)';
+        ctx.fillRect(x0 + 2, y0 + 2, w - 4, 2);
+        ctx.restore();
+
+        // outline for hover/selected
         if (isHovered || isSelected) {
           ctx.beginPath();
-          ctx.arc(p.x, p.y, r + 3 * vp.scale, 0, Math.PI * 2);
-          ctx.strokeStyle = isSelected ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.6)';
+          if ((ctx as any).roundRect) {
+            (ctx as any).roundRect(x0 - 2, y0 - 2, base + 4, height + 4, 10 * vp.scale);
+          } else {
+            ctx.rect(x0 - 2, y0 - 2, base + 4, height + 4);
+          }
+          ctx.strokeStyle = isSelected ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.55)';
           ctx.lineWidth = 2;
           ctx.stroke();
         }
 
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = isSelected ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.78)';
-        ctx.fill();
-
+        // badge on roof
         if (badge && vp.scale > 0.75) {
-          ctx.font = `${Math.max(10, 14 * vp.scale)}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
+          ctx.font = String(Math.max(10, 14 * vp.scale)) + 'px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
           ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillStyle = 'rgba(0,0,0,0.75)';
-          ctx.fillText(badge, p.x, p.y);
+          ctx.textBaseline = 'bottom';
+          ctx.fillStyle = 'rgba(0,0,0,0.7)';
+          ctx.fillText(badge, p.x, y0 + 16 * vp.scale);
         }
 
         // label fades with zoom
@@ -510,14 +580,15 @@ export default function HomePage() {
         if (labelAlpha > 0.02) {
           ctx.save();
           ctx.globalAlpha = 0.25 + 0.7 * labelAlpha;
-          ctx.font = `${Math.max(11, 12 * vp.scale)}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
+          ctx.font = String(Math.max(11, 12 * vp.scale)) + 'px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
           ctx.fillStyle = 'rgba(255,255,255,0.92)';
-          ctx.fillText(a.name, p.x, p.y + r + 8);
+          ctx.fillText(a.name, p.x, y0 + height + 10 * vp.scale);
           ctx.restore();
         }
 
+        // hit-test radius in world-space
         n.r = radius;
       }
 
