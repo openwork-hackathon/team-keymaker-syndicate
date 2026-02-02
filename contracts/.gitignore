@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Build artifacts (regenerated on compile)
+artifacts/
+cache/
+typechain-types/
+
+# Environment
+.env
+.env.local
+
+# Coverage
+coverage/
+coverage.json
+
+# Misc
+.DS_Store

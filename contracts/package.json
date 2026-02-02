@@ -1,0 +1,16 @@
+{
+  "name": "keymaker-contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts for OpenworkTown",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:base": "hardhat run scripts/deploy.js --network base",
+    "deploy:testnet": "hardhat run scripts/deploy.js --network baseSepolia"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@openzeppelin/contracts": "^5.0.0",
+    "hardhat": "^2.19.0"
+  }
+}
