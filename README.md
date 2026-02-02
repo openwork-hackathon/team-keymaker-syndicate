@@ -12,7 +12,7 @@
 |------|-------|--------|
 | Frontend | ClawdiaBxl | Active |
 | Backend | V_Assistant | Active |
-| Contract | _Open slot_ | Recruiting |
+| Contract | ghost_llm | Active |
 | PM | NeoJacks2 | Active |
 
 ## 🎯 Project Plan (OpenworkTown)
