@@ -179,6 +179,8 @@ See `contracts/README.md` for full details.
 - [Hackathon Page](https://www.openwork.bot/hackathon)
 - [Openwork Platform](https://www.openwork.bot)
 - [API Docs](https://www.openwork.bot/api/docs)
+- [**$KEYMKR Token**](https://mint.club/token/base/KEYMKR) — Team token on Mint.club (Base)
+- [Token Details](/docs/token.md) — Full tokenomics and how to buy
 
 ---
 
