@@ -1,51 +1,64 @@
-# $KEYMKR Token
+# 🪙 OpenworkTown (OWT) Token
 
-**The official token of Keymaker Syndicate hackathon team.**
+**The official team token for Keymaker Syndicate.**
 
 ## Token Details
 
-| Property | Value |
-|----------|-------|
-| **Name** | KEYMAKER |
-| **Symbol** | KEYMKR |
-| **Chain** | Base (Chain ID: 8453) |
-| **Contract** | `0xd76C9f14ADCA98F8296397c548AE022644cf7534` |
-| **Type** | Bonding Curve (Mint.club) |
-| **Backing** | $OPENWORK |
+| Field | Value |
+|-------|-------|
+| **Name** | OpenworkTown |
+| **Symbol** | OWT |
+| **Chain** | Base (8453) |
+| **Contract** | `0xd9E54aBe5eeE14c4C0Cb4b838D3BA825FdB08F29` |
+| **Reserve Token** | $OPENWORK |
+| **Max Supply** | 1,000,000 OWT |
+| **Platform** | Mint.club V2 |
 
 ## Links
 
-- **Mint.club Page:** [mint.club/token/base/KEYMKR](https://mint.club/token/base/KEYMKR)
-- **Basescan:** [basescan.org/token/0xd76C9f14ADCA98F8296397c548AE022644cf7534](https://basescan.org/token/0xd76C9f14ADCA98F8296397c548AE022644cf7534)
+- 🔗 **Buy/Sell:** https://mint.club/token/base/OWT
+- 📊 **BaseScan:** https://basescan.org/token/0xd9E54aBe5eeE14c4C0Cb4b838D3BA825FdB08F29
+
+## Bonding Curve
+
+The token uses a **LINEAR** bonding curve backed by $OPENWORK:
+
+| Price Range | Supply Range |
+|------------|--------------|
+| 0.001 OPENWORK | 0 - 333,333 OWT |
+| 0.0035 OPENWORK | 333,333 - 666,666 OWT |
+| 0.006 OPENWORK | 666,666 - 1,000,000 OWT |
+
+**Royalties:** 1% on buy, 1% on sell (goes to team treasury)
 
 ## How to Buy
 
-### Option 1: Mint.club (Recommended)
+### Option 1: Mint.club UI
+Visit https://mint.club/token/base/OWT and connect your wallet.
 
-1. Go to [mint.club/token/base/KEYMKR](https://mint.club/token/base/KEYMKR)
-2. Connect your wallet (MetaMask, Coinbase Wallet, etc.)
-3. Make sure you're on **Base** network
-4. Enter the amount of $OPENWORK you want to spend
-5. Click "Buy" and confirm the transaction
+### Option 2: Direct Contract
+```solidity
+// Approve OPENWORK first
+OPENWORK.approve(0xc5a076cad94176c2996B32d8466Be1cE757FAa27, amount);
 
-### Option 2: Direct Contract Interaction
+// Mint OWT tokens
+MCV2_Bond.mint(
+    0xd9E54aBe5eeE14c4C0Cb4b838D3BA825FdB08F29, // OWT address
+    tokensToMint,
+    maxReserveAmount,
+    receiver
+);
+```
 
-The token uses Mint.club's bonding curve mechanism. You can interact directly with the Mint.club contracts on Base if you prefer.
+## Contract Addresses (Base)
 
-## Tokenomics
-
-- **Bonding Curve:** Price increases as supply grows
-- **No Pre-mine:** Fair launch via Mint.club
-- **Backing Asset:** $OPENWORK token
-- **Utility:** Team governance, hackathon rewards, reputation
-
-## About Keymaker Syndicate
-
-We're building the agent reputation layer for Openwork — on-chain identity and achievement badges for AI agents.
-
-- **AgentRegistry:** Links Openwork agent IDs to wallet addresses
-- **ReputationBadges:** Soulbound NFT achievements (Newcomer → Elite)
+| Contract | Address |
+|----------|---------|
+| OWT Token | `0xd9E54aBe5eeE14c4C0Cb4b838D3BA825FdB08F29` |
+| $OPENWORK | `0x299c30DD5974BF4D5bFE42C340CA40462816AB07` |
+| MCV2_Bond | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` |
 
 ---
 
-*Created by Ghost LLM 👻 for Keymaker Syndicate*
+**Created by:** ghost_llm (Contract role)  
+**Date:** 2026-02-02
