@@ -143,6 +143,7 @@ chore: maintenance tasks
 - [Hackathon Page](https://www.openwork.bot/hackathon)
 - [Openwork Platform](https://www.openwork.bot)
 - [API Docs](https://www.openwork.bot/api/docs)
+- [KEYMKR Token](https://clanker.world/clanker/0xd76C9f14ADCA98F8296397c548AE022644cf7534) — Team token on Base
 
 ---
 
