@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentNode, LiveResponse } from '@/lib/types';
 import { isLiveResponse } from '@/lib/types';
 
+type Star = { x: number; y: number; r: number; a: number };
+
 type LayoutNode = {
   id: string;
   x: number; // world coords
@@ -130,6 +132,8 @@ export default function HomePage() {
 
   const layoutRef = useRef<Map<string, LayoutNode>>(new Map());
   const agentsRef = useRef<AgentNode[]>([]);
+  const starRef = useRef<Star[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const viewportRef = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
   const draggingRef = useRef<{ on: boolean; sx: number; sy: number; vx: number; vy: number }>({
@@ -163,8 +167,11 @@ export default function HomePage() {
 
         setAgents(j.agents);
         setMeta(j.meta);
+        setLoading(false);
       } catch {
         // ignore
+      } finally {
+        setLoading(false);
       }
     }
 
@@ -211,6 +218,25 @@ export default function HomePage() {
 
       const ctx = canvas.getContext('2d');
       if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Initialize a deterministic starfield once (world-space)
+      if (starRef.current.length === 0) {
+        const stars: Star[] = [];
+        const seed = hashStringToU32('openworktown-stars');
+        const rand = mulberry32(seed);
+        const WORLD_W = 2400;
+        const WORLD_H = 1600;
+        const N = 700;
+        for (let i = 0; i < N; i++) {
+          stars.push({
+            x: rand() * WORLD_W,
+            y: rand() * WORLD_H,
+            r: 0.6 + rand() * 1.8,
+            a: 0.15 + rand() * 0.55,
+          });
+        }
+        starRef.current = stars;
+      }
     }
 
     resize();
@@ -235,24 +261,33 @@ export default function HomePage() {
       const nodes = layoutRef.current;
       const agents = agentsRef.current;
 
-      // Background: deep gradient + subtle stars
+      // Background: deep gradient + parallax starfield
       ctx.clearRect(0, 0, W, H);
-      const g = ctx.createRadialGradient(W * 0.5, H * 0.25, 10, W * 0.5, H * 0.4, Math.max(W, H));
-      g.addColorStop(0, '#0f1733');
-      g.addColorStop(1, '#070a14');
+      const g = ctx.createRadialGradient(W * 0.55, H * 0.18, 10, W * 0.55, H * 0.38, Math.max(W, H));
+      g.addColorStop(0, '#101b3c');
+      g.addColorStop(1, '#05070f');
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, W, H);
 
-      // star specks (cheap)
-      ctx.save();
-      ctx.globalAlpha = 0.25;
-      for (let i = 0; i < 120; i++) {
-        const sx = (i * 997) % W;
-        const sy = (i * 619) % H;
-        ctx.fillStyle = i % 3 === 0 ? 'rgba(180,220,255,0.7)' : 'rgba(255,255,255,0.6)';
-        ctx.fillRect(sx, sy, 1, 1);
+      // Parallax stars in world space (subtle twinkle)
+      const stars = starRef.current;
+      if (stars.length) {
+        ctx.save();
+        for (let i = 0; i < stars.length; i++) {
+          const s = stars[i]!;
+          const tw = 0.75 + 0.25 * Math.sin(t / 900 + i * 0.17);
+          // parallax factor: stars move slower than nodes
+          const px = (s.x - vp.x * 0.25) * vp.scale;
+          const py = (s.y - vp.y * 0.25) * vp.scale;
+          if (px < -50 || py < -50 || px > W + 50 || py > H + 50) continue;
+          ctx.globalAlpha = s.a * tw;
+          ctx.fillStyle = i % 5 === 0 ? 'rgba(180,220,255,1)' : 'rgba(255,255,255,1)';
+          ctx.beginPath();
+          ctx.arc(px, py, s.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
       }
-      ctx.restore();
 
       // Draw links/roads later (future)
 
@@ -488,12 +523,20 @@ export default function HomePage() {
           <br />
           Drag to pan · Scroll to zoom · Click to inspect.
         </div>
-        <div style={{ marginTop: 10, fontSize: 12, opacity: 0.85, lineHeight: 1.4 }}>
-          <div>Agents: {agents.length}</div>
+        <div style={{ marginTop: 10, fontSize: 12, opacity: 0.88, lineHeight: 1.4 }}>
+          <div>
+            Agents: {agents.length}{' '}
+            {loading ? <span style={{ opacity: 0.8 }}>(loading…)</span> : null}
+          </div>
           {meta?.upstreamStatus !== undefined ? <div>Openwork status: {meta.upstreamStatus}</div> : null}
           {meta?.authUsed !== undefined ? <div>Auth: {meta.authUsed ? 'OPENWORK_API_KEY set' : 'no key'}</div> : null}
           {meta?.upstreamError ? (
             <div style={{ color: 'rgba(255,170,170,0.95)' }}>Upstream: {meta.upstreamError}</div>
+          ) : null}
+          {meta && agents.length === 0 && !loading ? (
+            <div style={{ marginTop: 6, opacity: 0.85 }}>
+              No agents returned. If this persists, check OPENWORK_API_KEY.
+            </div>
           ) : null}
         </div>
         <div style={{ marginTop: 10, fontSize: 12, opacity: 0.9, lineHeight: 1.4 }}>
