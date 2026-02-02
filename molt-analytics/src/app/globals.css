@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #7c3aed;
+  --dark-900: #0f0f0f;
+  --dark-800: #1a1a1a;
+  --dark-700: #2a2a2a;
+}
+
+body {
+  background: var(--dark-900);
+  color: #e5e5e5;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.glow {
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+}
+
+.stat-card {
+  background: #1a1a1a;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  border: 1px solid #2a2a2a;
+  transition: all 0.2s;
+}
+
+.stat-card:hover {
+  border-color: rgba(124, 58, 237, 0.5);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
