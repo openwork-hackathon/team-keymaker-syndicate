@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Kenney Atlas Viewer</title>
+  <style>
+    body { margin: 0; background:#0b1220; color:#e5e7eb; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    .bar{position:sticky;top:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.08)}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    input{width:80px}
+    .wrap{padding:12px}
+    canvas{image-rendering: pixelated; image-rendering: crisp-edges; border:1px solid rgba(255,255,255,0.15); max-width:100%; height:auto;}
+    .hint{opacity:0.85;font-size:13px}
+    .pill{padding:2px 8px;border-radius:999px;background:rgba(255,255,255,0.08);font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <div class="row">
+      <div class="pill">/tiles/kenney-roguelike/roguelikeSheet.png</div>
+      <div class="hint">Hover tiles to see <b>col,row</b>. Click to pin. Tile size <b>16</b>, margin <b>1</b>.</div>
+      <div style="margin-left:auto" class="pill" id="picked">picked: -</div>
+    </div>
+  </div>
+  <div class="wrap">
+    <canvas id="c"></canvas>
+  </div>
+
+<script>
+const TILE=16, M=1;
+const img = new Image();
+img.src = '/tiles/kenney-roguelike/roguelikeSheet.png';
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const picked = document.getElementById('picked');
+
+let pin=null;
+
+function draw(hover){
+  canvas.width = img.width;
+  canvas.height = img.height;
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(img,0,0);
+
+  // grid
+  ctx.globalAlpha = 0.25;
+  ctx.strokeStyle = '#000';
+  for(let y=M; y<img.height; y += TILE+M){
+    for(let x=M; x<img.width; x += TILE+M){
+      ctx.strokeRect(x+0.5,y+0.5,TILE-1,TILE-1);
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  const hi = pin || hover;
+  if(hi){
+    const {col,row,x,y} = hi;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#ffcc00';
+    ctx.strokeRect(x+0.5,y+0.5,TILE-1,TILE-1);
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fillRect(8,8,130,26);
+    ctx.fillStyle = '#fff';
+    ctx.font = '14px ui-sans-serif, system-ui';
+    ctx.fillText(`col ${col}, row ${row}`, 14, 26);
+  }
+}
+
+function hit(e){
+  const rect = canvas.getBoundingClientRect();
+  const sx = (e.clientX-rect.left) * (canvas.width/rect.width);
+  const sy = (e.clientY-rect.top) * (canvas.height/rect.height);
+  // convert to tile col/row based on margin spacing
+  const col = Math.floor((sx - M) / (TILE + M));
+  const row = Math.floor((sy - M) / (TILE + M));
+  if(col<0||row<0) return null;
+  const x = M + col*(TILE+M);
+  const y = M + row*(TILE+M);
+  if(sx < x || sy < y || sx > x+TILE || sy > y+TILE) return null;
+  return {col,row,x,y};
+}
+
+canvas.addEventListener('mousemove', (e)=>{
+  const h = hit(e);
+  draw(h);
+});
+canvas.addEventListener('mouseleave', ()=>draw(null));
+canvas.addEventListener('click', (e)=>{
+  pin = hit(e);
+  picked.textContent = 'picked: ' + (pin ? `col ${pin.col}, row ${pin.row}` : '-');
+  draw(null);
+});
+
+img.onload = ()=>{ draw(null); };
+</script>
+</body>
+</html>

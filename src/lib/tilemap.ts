@@ -14,27 +14,37 @@ export type TileVariant = {
 };
 
 // Guessable, but we'll keep simple and fix visually.
+// Tile indices chosen by sampling average RGB values from the atlas (to avoid accidentally
+// using decorative/edge tiles like the previous "water border" look). These can be tweaked
+// visually via /atlas.html.
 export const TILESET: Record<TileKind, TileVariant> = {
   grass: {
-    base: { col: 0, row: 0 },
+    // vivid green ground (candidates: (0..3,15..16))
+    base: { col: 0, row: 15 },
     alt: [
-      { col: 1, row: 0 },
-      { col: 2, row: 0 },
-      { col: 3, row: 0 },
+      { col: 1, row: 15 },
+      { col: 0, row: 16 },
+      { col: 1, row: 16 },
+      { col: 3, row: 16 },
     ],
   },
   path: {
-    base: { col: 0, row: 1 },
+    // earthy brown ground (candidates: (17,9..10), (14,10), (20,9))
+    base: { col: 17, row: 9 },
     alt: [
-      { col: 1, row: 1 },
-      { col: 2, row: 1 },
+      { col: 17, row: 10 },
+      { col: 14, row: 10 },
+      { col: 20, row: 9 },
+      { col: 11, row: 14 },
     ],
   },
   water: {
-    base: { col: 0, row: 2 },
+    // blue water fill (candidate: (2,3) is strongly blue; keep a couple nearby alternates)
+    base: { col: 2, row: 3 },
     alt: [
-      { col: 1, row: 2 },
-      { col: 2, row: 2 },
+      { col: 1, row: 3 },
+      { col: 3, row: 3 },
+      { col: 2, row: 4 },
     ],
   },
 };
