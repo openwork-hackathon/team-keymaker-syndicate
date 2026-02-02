@@ -204,6 +204,41 @@ function drawRpgSprite(ctx: CanvasRenderingContext2D, x: number, y: number, scal
   }
 }
 
+function drawTree(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number) {
+  const size = Math.max(1, Math.floor(1.25 * scale));
+  // trunk
+  ctx.fillStyle = '#5b3a1f';
+  drawPixel(ctx, x, y, 7, 11, size);
+  drawPixel(ctx, x, y, 8, 11, size);
+  drawPixel(ctx, x, y, 7, 12, size);
+  drawPixel(ctx, x, y, 8, 12, size);
+  // leaves
+  ctx.fillStyle = '#2e7d4f';
+  for (let py = 5; py <= 10; py++) for (let px = 5; px <= 10; px++) drawPixel(ctx, x, y, px, py, size);
+  ctx.fillStyle = '#3aa96b';
+  for (let px = 6; px <= 9; px++) drawPixel(ctx, x, y, px, 6, size);
+}
+
+function drawHouse(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number) {
+  const size = Math.max(1, Math.floor(1.25 * scale));
+  // roof
+  ctx.fillStyle = '#7c2e3a';
+  for (let px = 4; px <= 11; px++) drawPixel(ctx, x, y, px, 5, size);
+  for (let px = 5; px <= 10; px++) drawPixel(ctx, x, y, px, 4, size);
+  for (let px = 6; px <= 9; px++) drawPixel(ctx, x, y, px, 3, size);
+  // walls
+  ctx.fillStyle = '#c9c2b3';
+  for (let py = 6; py <= 12; py++) for (let px = 5; px <= 10; px++) drawPixel(ctx, x, y, px, py, size);
+  // door
+  ctx.fillStyle = '#6b4a2b';
+  for (let py = 10; py <= 12; py++) for (let px = 7; px <= 8; px++) drawPixel(ctx, x, y, px, py, size);
+  // window
+  ctx.fillStyle = '#5ab0ff';
+  drawPixel(ctx, x, y, 6, 8, size);
+  drawPixel(ctx, x, y, 9, 8, size);
+}
+
+
 function computeLayout(agents: AgentNode[], prev?: Map<string, LayoutNode>): Map<string, LayoutNode> {
   // World bounds; large enough to pan around.
   const WORLD_W = 2400;
@@ -598,8 +633,10 @@ export default function HomePage() {
 
       // Roads: connect nearby nodes within tier (kNN)
       ctx.save();
-      ctx.globalAlpha = 0.22;
-      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.18;
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
 
       const byTier = new Map<Tier, LayoutNode[]>();
       for (const n of nodes.values()) {
@@ -647,6 +684,13 @@ export default function HomePage() {
             ctx.moveTo(as.x, as.y);
             ctx.quadraticCurveTo(cx, cy, bs.x, bs.y);
             ctx.stroke();
+            // highlight center line
+            ctx.save();
+            ctx.globalAlpha *= 0.7;
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+            ctx.stroke();
+            ctx.restore();
           }
         }
       }
@@ -711,15 +755,6 @@ export default function HomePage() {
         const x0 = p.x - base / 2;
         const y0 = p.y - height / 2;
 
-        // soft shadow on ground
-        ctx.save();
-        ctx.globalAlpha = 0.22;
-        ctx.fillStyle = 'rgba(0,0,0,1)';
-        ctx.beginPath();
-        ctx.ellipse(p.x + 6 * vp.scale, p.y + height / 2 + 8 * vp.scale, base * 0.55, base * 0.22, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-
         // glow aura
         if (glow !== 'none') {
           ctx.beginPath();
@@ -749,7 +784,7 @@ export default function HomePage() {
         ctx.lineTo(x0, y0 + rr);
         ctx.quadraticCurveTo(x0, y0, x0 + rr, y0);
 
-        ctx.fillStyle = isSelected ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.78)';
+        ctx.fillStyle = isSelected ? 'rgba(255,255,255,0.58)' : 'rgba(255,255,255,0.45)';
         ctx.fill();
 
         // subtle top highlight
