@@ -20,6 +20,17 @@ type Viewport = {
   scale: number;
 };
 
+type MotionState = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  targetX: number;
+  targetY: number;
+  mode: 'spawning' | 'wandering';
+  nextWanderAt: number;
+};
+
 type Tier = 'legendary' | 'notable' | 'rising' | 'new';
 
 type District = {
@@ -281,6 +292,8 @@ export default function HomePage() {
 
   const layoutRef = useRef<Map<string, LayoutNode>>(new Map());
   const agentsRef = useRef<AgentNode[]>([]);
+  const motionRef = useRef<Map<string, MotionState>>(new Map());
+  const lastFrameAtRef = useRef<number>(0);
   const [loading, setLoading] = useState(true);
 
   const viewportRef = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
@@ -335,6 +348,45 @@ export default function HomePage() {
   useEffect(() => {
     agentsRef.current = agents;
     layoutRef.current = computeLayout(agents, layoutRef.current);
+
+
+    // Initialize motion state for new agents
+    const dock = { x: 460, y: 1360 }; // Docks spawn point (world)
+    const now = Date.now();
+    const nextMotion = new Map(motionRef.current);
+    for (const a of agents) {
+      const home = layoutRef.current.get(a.id);
+      if (!home) continue;
+      const existing = nextMotion.get(a.id);
+      if (existing) {
+        // Update target home if we were spawning and home moved
+        if (existing.mode === 'spawning') {
+          existing.targetX = home.x;
+          existing.targetY = home.y;
+        }
+        continue;
+      }
+      const seed = hashStringToU32('spawn-' + a.id);
+      const rand = mulberry32(seed);
+      // Slight jitter on dock so they don't overlap
+      const sx = dock.x + (rand() - 0.5) * 60;
+      const sy = dock.y + (rand() - 0.5) * 40;
+      nextMotion.set(a.id, {
+        x: sx,
+        y: sy,
+        vx: 0,
+        vy: 0,
+        targetX: home.x,
+        targetY: home.y,
+        mode: 'spawning',
+        nextWanderAt: now + 2000 + rand() * 3000,
+      });
+    }
+    // Remove motion state for agents that disappeared
+    for (const id of nextMotion.keys()) {
+      if (!agents.find(a => a.id === id)) nextMotion.delete(id);
+    }
+    motionRef.current = nextMotion;
 
     // If viewport hasn't been initialized, center on layout bounding box.
     const vp = viewportRef.current;
@@ -402,6 +454,74 @@ export default function HomePage() {
       const vp = viewportRef.current;
       const nodes = layoutRef.current;
       const agents = agentsRef.current;
+
+      // Motion update (subtle wandering)
+      const nowMs = t;
+      const last = lastFrameAtRef.current || nowMs;
+      const dt = Math.min(32, Math.max(8, nowMs - last));
+      lastFrameAtRef.current = nowMs;
+
+      const maxSpeed = 0.055; // world units per ms (subtle)
+      const arrive = 10;
+
+      for (const a of agents) {
+        const home = nodes.get(a.id);
+        const st = motionRef.current.get(a.id);
+        if (!home || !st) continue;
+
+        // When spawning and close to home, switch to wandering
+        if (st.mode === 'spawning') {
+          const dxh = st.targetX - st.x;
+          const dyh = st.targetY - st.y;
+          if (Math.hypot(dxh, dyh) < 18) {
+            st.mode = 'wandering';
+            st.vx = 0;
+            st.vy = 0;
+            st.nextWanderAt = Date.now() + 1200 + (hashStringToU32(a.id) % 2000);
+          }
+        }
+
+        // Wander targets are near home
+        if (st.mode === 'wandering' && Date.now() > st.nextWanderAt) {
+          const seed = hashStringToU32('wander-' + a.id + '-' + Math.floor(Date.now() / 5000));
+          const rand = mulberry32(seed);
+          const r = 35 + rand() * 55;
+          const ang = rand() * Math.PI * 2;
+          st.targetX = clamp(home.x + Math.cos(ang) * r, 80, 2320);
+          st.targetY = clamp(home.y + Math.sin(ang) * r, 80, 1520);
+          st.nextWanderAt = Date.now() + 2600 + rand() * 3000;
+        }
+
+        const dx = st.targetX - st.x;
+        const dy = st.targetY - st.y;
+        const dist = Math.hypot(dx, dy) || 1;
+
+        if (dist < arrive) {
+          // slow down
+          st.vx *= 0.85;
+          st.vy *= 0.85;
+        } else {
+          // accelerate towards target
+          const nx = dx / dist;
+          const ny = dy / dist;
+          st.vx += nx * maxSpeed * dt;
+          st.vy += ny * maxSpeed * dt;
+          // damp
+          st.vx *= 0.92;
+          st.vy *= 0.92;
+        }
+
+        // clamp speed
+        const sp = Math.hypot(st.vx, st.vy);
+        const cap = maxSpeed * 1.2;
+        if (sp > cap) {
+          st.vx = (st.vx / sp) * cap;
+          st.vy = (st.vy / sp) * cap;
+        }
+
+        st.x += st.vx * dt;
+        st.y += st.vy * dt;
+      }
 
       // Ground plane: terrain gradient + texture (kills the "space" vibe)
       ctx.clearRect(0, 0, W, H);
@@ -535,6 +655,7 @@ export default function HomePage() {
 
       // Landmarks (world-space)
       const landmarks = [
+        { name: 'Docks', icon: '⚓', x: 460, y: 1360 },
         { name: 'Town Hall', icon: '🏛️', x: 1080, y: 760 },
         { name: 'Market', icon: '🛒', x: 860, y: 980 },
         { name: 'Mint Club', icon: '🪙', x: 1520, y: 1020 },
@@ -572,7 +693,10 @@ export default function HomePage() {
         const n = nodes.get(a.id);
         if (!n) continue;
         const { radius, glow, badge } = scoreToVisual(a.repScore);
-        const p = worldToScreen(vp, n.x, n.y);
+        const ms = motionRef.current.get(a.id);
+        const px = ms ? ms.x : n.x;
+        const py = ms ? ms.y : n.y;
+        const p = worldToScreen(vp, px, py);
 
         if (p.x < -160 || p.y < -160 || p.x > W + 160 || p.y > H + 160) continue;
 
@@ -700,9 +824,12 @@ export default function HomePage() {
       for (const a of agentsRef.current) {
         const n = layoutRef.current.get(a.id);
         if (!n) continue;
+        const ms = motionRef.current.get(a.id);
+        const px = ms ? ms.x : n.x;
+        const py = ms ? ms.y : n.y;
         const { radius } = scoreToVisual(a.repScore);
-        const dx = world.x - n.x;
-        const dy = world.y - n.y;
+        const dx = world.x - px;
+        const dy = world.y - py;
         const d2 = dx * dx + dy * dy;
         if (d2 <= radius * radius) {
           if (!hit || d2 < hit.d2) hit = { id: a.id, d2 };
