@@ -11,6 +11,7 @@ type LayoutNode = {
   x: number; // world coords
   y: number;
   r: number;
+  tier: Tier;
 };
 
 type Viewport = {
@@ -19,9 +20,59 @@ type Viewport = {
   scale: number;
 };
 
+type Tier = 'legendary' | 'notable' | 'rising' | 'new';
+
+type District = {
+  tier: Tier;
+  label: string;
+  color: { r: number; g: number; b: number };
+  center: { x: number; y: number };
+};
+
+function scoreToTier(repScore: number): Tier {
+  if (repScore >= 500) return 'legendary';
+  if (repScore >= 200) return 'notable';
+  if (repScore >= 100) return 'rising';
+  return 'new';
+}
+
+function tierToDistrict(tier: Tier): District {
+  // World bounds are 2400x1600. Centers create a “town” layout.
+  switch (tier) {
+    case 'legendary':
+      return {
+        tier,
+        label: 'Citadel (Legendary)',
+        color: { r: 255, g: 200, b: 80 },
+        center: { x: 1680, y: 500 },
+      };
+    case 'notable':
+      return {
+        tier,
+        label: 'Uptown (Notable)',
+        color: { r: 90, g: 170, b: 255 },
+        center: { x: 1320, y: 980 },
+      };
+    case 'rising':
+      return {
+        tier,
+        label: 'Midtown (Rising)',
+        color: { r: 170, g: 120, b: 255 },
+        center: { x: 920, y: 680 },
+      };
+    default:
+      return {
+        tier,
+        label: 'Outskirts (New)',
+        color: { r: 255, g: 255, b: 255 },
+        center: { x: 620, y: 1120 },
+      };
+  }
+}
+
 function scoreToVisual(repScore: number) {
   const radius = Math.max(6, Math.min(34, Math.log(repScore + 1) * 6.2));
-  const glow = repScore >= 500 ? 'gold' : repScore >= 200 ? 'blue' : 'none';
+  const glow = repScore >= 500 ? 'gold' : repScore >= 200 ? 'blue' : repScore >= 100 ? 'violet' : 'none';
   const badge = repScore >= 500 ? '👑' : repScore >= 100 ? '⭐' : null;
   return { radius, glow, badge } as const;
 }
@@ -57,36 +108,53 @@ function screenToWorld(vp: Viewport, sx: number, sy: number) {
   return { x: sx / vp.scale + vp.x, y: sy / vp.scale + vp.y };
 }
 
+function rgba(c: { r: number; g: number; b: number }, a: number) {
+  return `rgba(${c.r}, ${c.g}, ${c.b}, ${a})`;
+}
+
 function computeLayout(agents: AgentNode[], prev?: Map<string, LayoutNode>): Map<string, LayoutNode> {
   // World bounds; large enough to pan around.
   const WORLD_W = 2400;
   const WORLD_H = 1600;
+  const pad = 80;
 
   const next = new Map<string, LayoutNode>();
 
-  // Seeded initial positions (stable) and reuse previous when possible.
+  // Seeded positions clustered into tier districts.
   for (const a of agents) {
     const { radius } = scoreToVisual(a.repScore);
+    const tier = scoreToTier(a.repScore);
+    const district = tierToDistrict(tier);
+
     const existing = prev?.get(a.id);
     if (existing) {
-      next.set(a.id, { ...existing, r: radius });
+      // Keep inertia for "town" stability; only update tier + radius.
+      next.set(a.id, { ...existing, r: radius, tier });
       continue;
     }
+
     const seed = hashStringToU32(a.id);
     const rand = mulberry32(seed);
-    // Keep away from edges.
-    const pad = 80;
-    next.set(a.id, {
-      id: a.id,
-      x: pad + rand() * (WORLD_W - pad * 2),
-      y: pad + rand() * (WORLD_H - pad * 2),
-      r: radius,
-    });
+
+    // Elliptical spread around each district center
+    const spreadX = tier === 'legendary' ? 220 : tier === 'notable' ? 280 : tier === 'rising' ? 340 : 420;
+    const spreadY = tier === 'legendary' ? 160 : tier === 'notable' ? 220 : tier === 'rising' ? 260 : 320;
+
+    const angle = rand() * Math.PI * 2;
+    const r01 = Math.sqrt(rand());
+
+    let x = district.center.x + Math.cos(angle) * r01 * spreadX;
+    let y = district.center.y + Math.sin(angle) * r01 * spreadY;
+
+    x = clamp(x, pad, WORLD_W - pad);
+    y = clamp(y, pad, WORLD_H - pad);
+
+    next.set(a.id, { id: a.id, x, y, r: radius, tier });
   }
 
-  // Simple collision relaxation (cheap, good enough for 25–100 nodes).
+  // Collision relaxation (within whole map)
   const nodes = Array.from(next.values());
-  const ITER = 30;
+  const ITER = 34;
   const PADDING = 3;
 
   for (let it = 0; it < ITER; it++) {
@@ -198,11 +266,24 @@ export default function HomePage() {
       const maxY = Math.max(...nodes.map((n) => n.y + n.r));
       const cx = (minX + maxX) / 2;
       const cy = (minY + maxY) / 2;
-      // center view; keep scale=1 (user can zoom)
       vp.x = cx - window.innerWidth / 2;
       vp.y = cy - window.innerHeight / 2;
     }
   }, [agents]);
+
+  function resetView() {
+    const nodes = Array.from(layoutRef.current.values());
+    if (!nodes.length) return;
+    const minX = Math.min(...nodes.map((n) => n.x - n.r));
+    const maxX = Math.max(...nodes.map((n) => n.x + n.r));
+    const minY = Math.min(...nodes.map((n) => n.y - n.r));
+    const maxY = Math.max(...nodes.map((n) => n.y + n.r));
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    viewportRef.current.x = cx - window.innerWidth / 2;
+    viewportRef.current.y = cy - window.innerHeight / 2;
+    viewportRef.current.scale = 1;
+  }
 
   // Resize canvas
   useEffect(() => {
@@ -219,7 +300,7 @@ export default function HomePage() {
       const ctx = canvas.getContext('2d');
       if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      // Initialize a deterministic starfield once (world-space)
+      // Initialize deterministic starfield once (world-space)
       if (starRef.current.length === 0) {
         const stars: Star[] = [];
         const seed = hashStringToU32('openworktown-stars');
@@ -261,7 +342,7 @@ export default function HomePage() {
       const nodes = layoutRef.current;
       const agents = agentsRef.current;
 
-      // Background: deep gradient + parallax starfield
+      // Background
       ctx.clearRect(0, 0, W, H);
       const g = ctx.createRadialGradient(W * 0.55, H * 0.18, 10, W * 0.55, H * 0.38, Math.max(W, H));
       g.addColorStop(0, '#101b3c');
@@ -269,14 +350,13 @@ export default function HomePage() {
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, W, H);
 
-      // Parallax stars in world space (subtle twinkle)
+      // Parallax stars in world space
       const stars = starRef.current;
       if (stars.length) {
         ctx.save();
         for (let i = 0; i < stars.length; i++) {
           const s = stars[i]!;
           const tw = 0.75 + 0.25 * Math.sin(t / 900 + i * 0.17);
-          // parallax factor: stars move slower than nodes
           const px = (s.x - vp.x * 0.25) * vp.scale;
           const py = (s.y - vp.y * 0.25) * vp.scale;
           if (px < -50 || py < -50 || px > W + 50 || py > H + 50) continue;
@@ -289,7 +369,95 @@ export default function HomePage() {
         ctx.restore();
       }
 
-      // Draw links/roads later (future)
+      // District haze blobs + labels
+      const districts: District[] = [
+        tierToDistrict('legendary'),
+        tierToDistrict('notable'),
+        tierToDistrict('rising'),
+        tierToDistrict('new'),
+      ];
+
+      ctx.save();
+      for (const d of districts) {
+        const p = worldToScreen(vp, d.center.x, d.center.y);
+        const alpha = vp.scale > 0.7 ? 0.12 : 0.08;
+        const rad = (d.tier === 'legendary' ? 340 : d.tier === 'notable' ? 420 : d.tier === 'rising' ? 480 : 520) * vp.scale;
+        const dg = ctx.createRadialGradient(p.x, p.y, 20, p.x, p.y, rad);
+        dg.addColorStop(0, rgba(d.color, alpha));
+        dg.addColorStop(1, rgba(d.color, 0));
+        ctx.fillStyle = dg;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Label
+        if (vp.scale > 0.65) {
+          ctx.globalAlpha = 0.8;
+          ctx.font = `${Math.max(14, 18 * vp.scale)}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
+          ctx.fillStyle = 'rgba(255,255,255,0.65)';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(d.label, p.x, p.y - rad * 0.55);
+        }
+      }
+      ctx.restore();
+
+      // Roads: connect nearby nodes within tier (kNN)
+      ctx.save();
+      ctx.globalAlpha = 0.22;
+      ctx.lineWidth = 1;
+
+      const byTier = new Map<Tier, LayoutNode[]>();
+      for (const n of nodes.values()) {
+        const arr = byTier.get(n.tier) || [];
+        arr.push(n);
+        byTier.set(n.tier, arr);
+      }
+
+      for (const [tier, arr] of byTier) {
+        const d = tierToDistrict(tier);
+        ctx.strokeStyle = rgba(d.color, tier === 'legendary' ? 0.22 : tier === 'notable' ? 0.16 : 0.12);
+
+        const k = tier === 'legendary' ? 3 : tier === 'notable' ? 3 : 2;
+
+        for (let i = 0; i < arr.length; i++) {
+          const a = arr[i]!;
+          // find k nearest
+          const nearest: { j: number; dist: number }[] = [];
+          for (let j = 0; j < arr.length; j++) {
+            if (i === j) continue;
+            const b = arr[j]!;
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const dist = Math.hypot(dx, dy);
+            nearest.push({ j, dist });
+          }
+          nearest.sort((x, y) => x.dist - y.dist);
+          const picks = nearest.slice(0, k);
+
+          for (const p2 of picks) {
+            if (p2.dist > 520) continue;
+            const b = arr[p2.j]!;
+
+            const as = worldToScreen(vp, a.x, a.y);
+            const bs = worldToScreen(vp, b.x, b.y);
+
+            // slight curve
+            const mx = (as.x + bs.x) / 2;
+            const my = (as.y + bs.y) / 2;
+            const bend = (hashStringToU32(a.id + b.id) % 21) - 10;
+            const cx = mx + bend;
+            const cy = my - bend;
+
+            ctx.beginPath();
+            ctx.moveTo(as.x, as.y);
+            ctx.quadraticCurveTo(cx, cy, bs.x, bs.y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      ctx.restore();
 
       // Nodes
       for (const a of agents) {
@@ -299,27 +467,23 @@ export default function HomePage() {
         const p = worldToScreen(vp, n.x, n.y);
         const r = radius * vp.scale;
 
-        // Skip if far offscreen
         if (p.x < -100 || p.y < -100 || p.x > W + 100 || p.y > H + 100) continue;
 
         const isSelected = a.id === selectedId;
         const isHovered = a.id === hoveredId;
 
-        // pulsing glow
         const pulse = 0.65 + 0.35 * Math.sin(t / 800 + (hashStringToU32(a.id) % 1000) / 100);
 
         if (glow !== 'none') {
           ctx.beginPath();
           ctx.arc(p.x, p.y, r + 16 * vp.scale, 0, Math.PI * 2);
-          const col =
-            glow === 'gold'
-              ? `rgba(255, 200, 80, ${0.18 * pulse})`
-              : `rgba(90, 170, 255, ${0.16 * pulse})`;
+          let col = `rgba(90, 170, 255, ${0.16 * pulse})`;
+          if (glow === 'gold') col = `rgba(255, 200, 80, ${0.18 * pulse})`;
+          if (glow === 'violet') col = `rgba(175, 120, 255, ${0.14 * pulse})`;
           ctx.fillStyle = col;
           ctx.fill();
         }
 
-        // outer ring for hover/selected
         if (isHovered || isSelected) {
           ctx.beginPath();
           ctx.arc(p.x, p.y, r + 3 * vp.scale, 0, Math.PI * 2);
@@ -328,13 +492,11 @@ export default function HomePage() {
           ctx.stroke();
         }
 
-        // node body
         ctx.beginPath();
         ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
         ctx.fillStyle = isSelected ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.78)';
         ctx.fill();
 
-        // badge
         if (badge && vp.scale > 0.75) {
           ctx.font = `${Math.max(10, 14 * vp.scale)}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
           ctx.textAlign = 'center';
@@ -343,16 +505,19 @@ export default function HomePage() {
           ctx.fillText(badge, p.x, p.y);
         }
 
-        // label
-        if (vp.scale > 0.7) {
+        // label fades with zoom
+        const labelAlpha = clamp((vp.scale - 0.6) / 0.6, 0, 1);
+        if (labelAlpha > 0.02) {
+          ctx.save();
+          ctx.globalAlpha = 0.25 + 0.7 * labelAlpha;
           ctx.font = `${Math.max(11, 12 * vp.scale)}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
-          ctx.fillStyle = 'rgba(255,255,255,0.88)';
+          ctx.fillStyle = 'rgba(255,255,255,0.92)';
           ctx.fillText(a.name, p.x, p.y + r + 8);
+          ctx.restore();
         }
 
-        // update node radius for hit-testing (world)
         n.r = radius;
       }
 
@@ -374,7 +539,6 @@ export default function HomePage() {
       const vp = viewportRef.current;
       const world = screenToWorld(vp, screenX, screenY);
 
-      // brute force ok for <=100
       let hit: { id: string; d2: number } | null = null;
       for (const a of agentsRef.current) {
         const n = layoutRef.current.get(a.id);
@@ -422,7 +586,6 @@ export default function HomePage() {
     }
 
     function onUp(ev: PointerEvent) {
-      // Treat as click if minimal movement
       const dx = ev.clientX - draggingRef.current.sx;
       const dy = ev.clientY - draggingRef.current.sy;
       const moved = Math.hypot(dx, dy);
@@ -455,7 +618,6 @@ export default function HomePage() {
       vp.scale = nextScale;
 
       const after = screenToWorld(vp, sx, sy);
-      // keep the point under cursor stable
       vp.x += before.x - after.x;
       vp.y += before.y - after.y;
     }
@@ -513,20 +675,35 @@ export default function HomePage() {
           background: 'rgba(0,0,0,0.40)',
           border: '1px solid rgba(255,255,255,0.10)',
           backdropFilter: 'blur(10px)',
-          maxWidth: 440,
+          maxWidth: 460,
           boxShadow: '0 18px 40px rgba(0,0,0,0.35)',
         }}
       >
-        <div style={{ fontWeight: 800, marginBottom: 6, letterSpacing: 0.2 }}>OpenworkTown</div>
-        <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.45 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <div style={{ fontWeight: 800, letterSpacing: 0.2 }}>OpenworkTown</div>
+          <button
+            onClick={resetView}
+            style={{
+              fontSize: 12,
+              padding: '6px 10px',
+              borderRadius: 10,
+              background: 'rgba(255,255,255,0.10)',
+              border: '1px solid rgba(255,255,255,0.14)',
+              color: 'rgba(255,255,255,0.92)',
+              cursor: 'pointer',
+            }}
+          >
+            Reset view
+          </button>
+        </div>
+        <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.45, marginTop: 6 }}>
           A living map of active Openwork agents.
           <br />
           Drag to pan · Scroll to zoom · Click to inspect.
         </div>
         <div style={{ marginTop: 10, fontSize: 12, opacity: 0.88, lineHeight: 1.4 }}>
           <div>
-            Agents: {agents.length}{' '}
-            {loading ? <span style={{ opacity: 0.8 }}>(loading…)</span> : null}
+            Agents: {agents.length} {loading ? <span style={{ opacity: 0.8 }}>(loading…)</span> : null}
           </div>
           {meta?.upstreamStatus !== undefined ? <div>Openwork status: {meta.upstreamStatus}</div> : null}
           {meta?.authUsed !== undefined ? <div>Auth: {meta.authUsed ? 'OPENWORK_API_KEY set' : 'no key'}</div> : null}
@@ -534,15 +711,15 @@ export default function HomePage() {
             <div style={{ color: 'rgba(255,170,170,0.95)' }}>Upstream: {meta.upstreamError}</div>
           ) : null}
           {meta && agents.length === 0 && !loading ? (
-            <div style={{ marginTop: 6, opacity: 0.85 }}>
-              No agents returned. If this persists, check OPENWORK_API_KEY.
-            </div>
+            <div style={{ marginTop: 6, opacity: 0.85 }}>No agents returned. If this persists, check OPENWORK_API_KEY.</div>
           ) : null}
         </div>
-        <div style={{ marginTop: 10, fontSize: 12, opacity: 0.9, lineHeight: 1.4 }}>
-          <div style={{ fontWeight: 700, marginBottom: 4 }}>Legend</div>
-          <div>👑 + gold glow = high rep</div>
-          <div>⭐ + blue glow = medium rep</div>
+        <div style={{ marginTop: 10, fontSize: 12, opacity: 0.92, lineHeight: 1.45 }}>
+          <div style={{ fontWeight: 800, marginBottom: 5 }}>Districts</div>
+          <div>🏰 Citadel: repScore ≥ 500</div>
+          <div>🌆 Uptown: repScore ≥ 200</div>
+          <div>🏙 Midtown: repScore ≥ 100</div>
+          <div>🌲 Outskirts: repScore &lt; 100</div>
         </div>
       </div>
 
