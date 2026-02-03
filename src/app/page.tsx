@@ -832,16 +832,25 @@ export default function HomePage() {
         const frame = Math.floor(t / 160 + (hashStringToU32(a.id) % 9)) % 8;
         drawRpgSprite(ctx, p.x - 8 * Math.max(1, Math.floor(1.35 * clamp(vp.scale, 0.7, 2.0))), y0 - 18 * vp.scale, clamp(vp.scale, 0.7, 2.0), tier, frame);
 
-        // label fades with zoom
+        // label fades with zoom + text halo for readability
         const labelAlpha = clamp((vp.scale - 0.6) / 0.6, 0, 1);
-        if (labelAlpha > 0.02) {
+        // Boost alpha for hovered/selected agents
+        const effectiveAlpha = (isHovered || isSelected) ? Math.max(0.85, labelAlpha) : labelAlpha;
+        if (effectiveAlpha > 0.02) {
           ctx.save();
-          ctx.globalAlpha = 0.25 + 0.7 * labelAlpha;
-          ctx.font = String(Math.max(11, 12 * vp.scale)) + 'px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+          ctx.globalAlpha = 0.25 + 0.7 * effectiveAlpha;
+          ctx.font = `600 ${Math.max(11, 12 * vp.scale)}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
-          ctx.fillStyle = 'rgba(255,255,255,0.92)';
-          ctx.fillText(a.name, p.x, y0 + height + 10 * vp.scale);
+          const labelY = y0 + height + 10 * vp.scale;
+          // Dark halo/stroke for contrast against grass/path
+          ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+          ctx.lineWidth = 3;
+          ctx.lineJoin = 'round';
+          ctx.strokeText(a.name, p.x, labelY);
+          // White fill
+          ctx.fillStyle = 'rgba(255,255,255,0.95)';
+          ctx.fillText(a.name, p.x, labelY);
           ctx.restore();
         }
 
