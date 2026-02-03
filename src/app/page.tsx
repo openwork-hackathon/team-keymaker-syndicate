@@ -124,6 +124,33 @@ function rgba(c: { r: number; g: number; b: number }, a: number) {
   return `rgba(${c.r}, ${c.g}, ${c.b}, ${a})`;
 }
 
+/**
+ * Draw text with a dark halo/outline for readability over any background.
+ * Uses 8-way offset technique for crisp pixel-art style outline.
+ */
+function drawTextWithHalo(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  fillColor: string,
+  haloColor = 'rgba(0,0,0,0.7)',
+  haloSize = 1
+) {
+  // Draw halo in 8 directions
+  ctx.fillStyle = haloColor;
+  for (let ox = -haloSize; ox <= haloSize; ox++) {
+    for (let oy = -haloSize; oy <= haloSize; oy++) {
+      if (ox !== 0 || oy !== 0) {
+        ctx.fillText(text, x + ox, y + oy);
+      }
+    }
+  }
+  // Draw main text on top
+  ctx.fillStyle = fillColor;
+  ctx.fillText(text, x, y);
+}
+
 type SpritePalette = {
   skin: string;
   hair: string;
@@ -649,10 +676,9 @@ export default function HomePage() {
         if (vp.scale > 0.65) {
           ctx.globalAlpha = 0.8;
           ctx.font = `${Math.max(14, 18 * vp.scale)}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
-          ctx.fillStyle = 'rgba(255,255,255,0.65)';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(d.label, p.x, p.y - rad * 0.55);
+          drawTextWithHalo(ctx, d.label, p.x, p.y - rad * 0.55, 'rgba(255,255,255,0.85)', 'rgba(0,0,0,0.5)');
         }
       }
       ctx.restore();
@@ -745,14 +771,13 @@ export default function HomePage() {
         ctx.font = String(Math.max(18, 22 * vp.scale)) + 'px system-ui';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = 'rgba(255,255,255,0.92)';
-        ctx.fillText(lm.icon, lp.x, lp.y);
+        drawTextWithHalo(ctx, lm.icon, lp.x, lp.y, 'rgba(255,255,255,0.95)', 'rgba(0,0,0,0.6)');
 
         if (vp.scale > 0.75) {
           ctx.font = String(Math.max(12, 13 * vp.scale)) + 'px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
           ctx.textBaseline = 'top';
           ctx.globalAlpha = 0.75;
-          ctx.fillText(lm.name, lp.x, lp.y + 18 * vp.scale);
+          drawTextWithHalo(ctx, lm.name, lp.x, lp.y + 18 * vp.scale, 'rgba(255,255,255,0.95)', 'rgba(0,0,0,0.5)');
         }
         ctx.globalAlpha = 1;
       }
@@ -823,8 +848,7 @@ export default function HomePage() {
           ctx.font = String(Math.max(10, 14 * vp.scale)) + 'px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'bottom';
-          ctx.fillStyle = 'rgba(0,0,0,0.7)';
-          ctx.fillText(badge, p.x, y0 + 16 * vp.scale);
+          drawTextWithHalo(ctx, badge, p.x, y0 + 16 * vp.scale, 'rgba(255,255,200,1)', 'rgba(0,0,0,0.6)');
         }
 
         // Pixel RPG sprite (fun layer)
@@ -840,8 +864,7 @@ export default function HomePage() {
           ctx.font = String(Math.max(11, 12 * vp.scale)) + 'px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
-          ctx.fillStyle = 'rgba(255,255,255,0.92)';
-          ctx.fillText(a.name, p.x, y0 + height + 10 * vp.scale);
+          drawTextWithHalo(ctx, a.name, p.x, y0 + height + 10 * vp.scale, 'rgba(255,255,255,0.95)', 'rgba(0,0,0,0.6)');
           ctx.restore();
         }
 
