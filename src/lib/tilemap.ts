@@ -49,6 +49,14 @@ export const TILESET: Record<TileKind, TileVariant> = {
   },
 };
 
+export type PropKind = 'tree' | 'rock' | 'flower' | 'sign' | 'barrel';
+
+export type Prop = {
+  kind: PropKind;
+  x: number; // world coords
+  y: number;
+};
+
 export type WorldTilemap = {
   worldW: number;
   worldH: number;
@@ -56,6 +64,7 @@ export type WorldTilemap = {
   cols: number;
   rows: number;
   map: TileKind[];
+  props: Prop[];
 };
 
 export function makeWorldTilemap(worldW: number, worldH: number, tilePx: number): WorldTilemap {
@@ -104,7 +113,67 @@ export function makeWorldTilemap(worldW: number, worldH: number, tilePx: number)
   line(mint.x, mint.y, hall.x, hall.y, 'path');
   line(market.x, market.y, docks.x, docks.y, 'path');
 
-  return { worldW, worldH, tilePx, cols, rows, map };
+  // Generate scattered props
+  const props: Prop[] = [];
+  const seededRand = (seed: number) => {
+    let s = seed;
+    return () => {
+      s = (s * 1103515245 + 12345) & 0x7fffffff;
+      return s / 0x7fffffff;
+    };
+  };
+  const rand = seededRand(42);
+
+  // Scatter trees in outskirts (left/bottom area)
+  for (let i = 0; i < 45; i++) {
+    const x = 100 + rand() * 700;
+    const y = 900 + rand() * 600;
+    // Don't place on water or paths
+    const tx = Math.floor(x / tilePx);
+    const ty = Math.floor(y / tilePx);
+    if (tx >= 0 && ty >= 0 && tx < cols && ty < rows) {
+      const tile = map[ty * cols + tx];
+      if (tile === 'grass') {
+        props.push({ kind: 'tree', x, y });
+      }
+    }
+  }
+
+  // Scatter rocks near paths and outskirts
+  for (let i = 0; i < 25; i++) {
+    const x = 200 + rand() * 1800;
+    const y = 400 + rand() * 1100;
+    const tx = Math.floor(x / tilePx);
+    const ty = Math.floor(y / tilePx);
+    if (tx >= 0 && ty >= 0 && tx < cols && ty < rows) {
+      const tile = map[ty * cols + tx];
+      if (tile === 'grass') {
+        props.push({ kind: 'rock', x, y });
+      }
+    }
+  }
+
+  // Flowers scattered lightly
+  for (let i = 0; i < 20; i++) {
+    const x = 300 + rand() * 1400;
+    const y = 500 + rand() * 900;
+    const tx = Math.floor(x / tilePx);
+    const ty = Math.floor(y / tilePx);
+    if (tx >= 0 && ty >= 0 && tx < cols && ty < rows) {
+      const tile = map[ty * cols + tx];
+      if (tile === 'grass') {
+        props.push({ kind: 'flower', x, y });
+      }
+    }
+  }
+
+  // Signs near landmarks
+  props.push({ kind: 'sign', x: 500, y: 1320 }); // near docks
+  props.push({ kind: 'sign', x: 1040, y: 800 }); // near town hall
+  props.push({ kind: 'barrel', x: 820, y: 950 }); // near market
+  props.push({ kind: 'barrel', x: 880, y: 1010 }); // near market
+
+  return { worldW, worldH, tilePx, cols, rows, map, props };
 }
 
 export function atlasSrcRect(pos: AtlasPos) {

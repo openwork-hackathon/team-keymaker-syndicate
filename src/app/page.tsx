@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentNode, LiveResponse } from '@/lib/types';
 import { isLiveResponse } from '@/lib/types';
-import { KENNEY_TILE_SIZE, atlasSrcRect, makeWorldTilemap, TILESET, type TileKind, type WorldTilemap } from '@/lib/tilemap';
+import { KENNEY_TILE_SIZE, atlasSrcRect, makeWorldTilemap, TILESET, type TileKind, type WorldTilemap, type Prop, type PropKind } from '@/lib/tilemap';
 
 type Star = { x: number; y: number; r: number; a: number };
 
@@ -239,6 +239,80 @@ function drawHouse(ctx: CanvasRenderingContext2D, x: number, y: number, scale: n
   drawPixel(ctx, x, y, 9, 8, size);
 }
 
+function drawRock(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number) {
+  const size = Math.max(1, Math.floor(1.1 * scale));
+  // gray rock
+  ctx.fillStyle = '#5a5a5a';
+  for (let px = 6; px <= 9; px++) drawPixel(ctx, x, y, px, 10, size);
+  for (let px = 5; px <= 10; px++) drawPixel(ctx, x, y, px, 11, size);
+  for (let px = 6; px <= 9; px++) drawPixel(ctx, x, y, px, 12, size);
+  // highlight
+  ctx.fillStyle = '#7a7a7a';
+  drawPixel(ctx, x, y, 6, 10, size);
+  drawPixel(ctx, x, y, 7, 10, size);
+}
+
+function drawFlower(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, hue: number) {
+  const size = Math.max(1, Math.floor(0.9 * scale));
+  // stem
+  ctx.fillStyle = '#2e6b3e';
+  drawPixel(ctx, x, y, 7, 11, size);
+  drawPixel(ctx, x, y, 7, 12, size);
+  // petals (hue varies)
+  const colors = ['#ff6b8a', '#ffb366', '#66b3ff', '#b366ff', '#ffff66'];
+  ctx.fillStyle = colors[hue % colors.length];
+  drawPixel(ctx, x, y, 6, 9, size);
+  drawPixel(ctx, x, y, 8, 9, size);
+  drawPixel(ctx, x, y, 7, 8, size);
+  drawPixel(ctx, x, y, 7, 10, size);
+  // center
+  ctx.fillStyle = '#ffdd44';
+  drawPixel(ctx, x, y, 7, 9, size);
+}
+
+function drawSign(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number) {
+  const size = Math.max(1, Math.floor(1.15 * scale));
+  // post
+  ctx.fillStyle = '#5b3a1f';
+  drawPixel(ctx, x, y, 7, 9, size);
+  drawPixel(ctx, x, y, 7, 10, size);
+  drawPixel(ctx, x, y, 7, 11, size);
+  drawPixel(ctx, x, y, 7, 12, size);
+  // sign board
+  ctx.fillStyle = '#c9a86c';
+  for (let px = 4; px <= 10; px++) {
+    drawPixel(ctx, x, y, px, 6, size);
+    drawPixel(ctx, x, y, px, 7, size);
+    drawPixel(ctx, x, y, px, 8, size);
+  }
+}
+
+function drawBarrel(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number) {
+  const size = Math.max(1, Math.floor(1.1 * scale));
+  // barrel body
+  ctx.fillStyle = '#8b5a2b';
+  for (let py = 7; py <= 12; py++) {
+    for (let px = 5; px <= 10; px++) {
+      drawPixel(ctx, x, y, px, py, size);
+    }
+  }
+  // metal bands
+  ctx.fillStyle = '#4a4a4a';
+  for (let px = 5; px <= 10; px++) {
+    drawPixel(ctx, x, y, px, 8, size);
+    drawPixel(ctx, x, y, px, 11, size);
+  }
+}
+
+function drawProp(ctx: CanvasRenderingContext2D, prop: Prop, screenX: number, screenY: number, scale: number, seed: number) {
+  switch (prop.kind) {
+    case 'tree': drawTree(ctx, screenX, screenY, scale); break;
+    case 'rock': drawRock(ctx, screenX, screenY, scale); break;
+    case 'flower': drawFlower(ctx, screenX, screenY, scale, seed); break;
+    case 'sign': drawSign(ctx, screenX, screenY, scale); break;
+    case 'barrel': drawBarrel(ctx, screenX, screenY, scale); break;
+  }
+}
 
 function computeLayout(agents: AgentNode[], prev?: Map<string, LayoutNode>): Map<string, LayoutNode> {
   // World bounds; large enough to pan around.
@@ -614,6 +688,17 @@ export default function HomePage() {
             ctx.fillStyle = k === 'water' ? '#0a2038' : k === 'path' ? '#3a2f22' : '#0f2a1f';
             ctx.fillRect(sp.x, sp.y, sz, sz);
           }
+        }
+      }
+
+      // Render props (trees, rocks, flowers, etc)
+      if (tm.props) {
+        for (let i = 0; i < tm.props.length; i++) {
+          const prop = tm.props[i];
+          const sp = worldToScreen(vp, prop.x, prop.y);
+          // Cull off-screen props
+          if (sp.x < -50 || sp.y < -50 || sp.x > W + 50 || sp.y > H + 50) continue;
+          drawProp(ctx, prop, sp.x - 8 * vp.scale, sp.y - 8 * vp.scale, vp.scale, i);
         }
       }
 
