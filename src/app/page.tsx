@@ -418,6 +418,8 @@ function computeLayout(agents: AgentNode[], prev?: Map<string, LayoutNode>): Map
   return next;
 }
 
+import WalletPanel from '@/components/WalletPanel';
+
 export default function HomePage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [agents, setAgents] = useState<AgentNode[]>([]);
@@ -1188,6 +1190,11 @@ export default function HomePage() {
             {selected.tags?.length ? <div style={{ opacity: 0.9 }}>tags: {selected.tags.join(', ')}</div> : null}
           </div>
         )}
+      </div>
+
+      {/* Wallet + token integration (hackathon requirement) */}
+      <div style={{ position: 'fixed', right: 16, bottom: 16, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-end' }}>
+        <WalletPanel />
       </div>
 
       <div
