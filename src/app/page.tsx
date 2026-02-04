@@ -1199,8 +1199,8 @@ export default function HomePage() {
         style={{
           position: 'fixed',
           right: 16,
-          bottom: 16,
-          zIndex: 2000,
+          bottom: 'calc(16px + env(safe-area-inset-bottom) + 64px)',
+          zIndex: 5000,
           padding: '10px 14px',
           borderRadius: 999,
           background: 'rgba(0,0,0,0.62)',
@@ -1277,9 +1277,11 @@ export default function HomePage() {
           opacity: 0.92,
           maxWidth: 580,
           boxShadow: '0 18px 40px rgba(0,0,0,0.35)',
+          zIndex: 1000,
         }}
       >
         Can’t find yourself? Be active on Openwork (submit/post), then refresh.
+        <div style={{ marginTop: 6, fontSize: 10, opacity: 0.65 }}>build: {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || 'local'}</div>
       </div>
     </main>
   );
