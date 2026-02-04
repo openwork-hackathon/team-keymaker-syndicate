@@ -49,7 +49,7 @@ function scoreToTier(repScore: number): Tier {
 }
 
 function tierToDistrict(tier: Tier): District {
-  // World bounds are 2400x1600. Centers create a "town" layout.
+  // World bounds are 2400x1600. Centers create a “town” layout.
   switch (tier) {
     case 'legendary':
       return {
@@ -419,10 +419,10 @@ function computeLayout(agents: AgentNode[], prev?: Map<string, LayoutNode>): Map
 }
 
 import WalletPanel from '@/components/WalletPanel';
-import { ShareButton, OnboardingTooltip } from '@/components/ShareAndOnboarding';
 
 export default function HomePage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [walletOpen, setWalletOpen] = useState(false);
   const [agents, setAgents] = useState<AgentNode[]>([]);
   const [meta, setMeta] = useState<LiveResponse['meta']>(undefined);
 
@@ -1123,23 +1123,20 @@ export default function HomePage() {
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <div style={{ fontWeight: 800, letterSpacing: 0.2 }}>OpenworkTown</div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={resetView}
-              style={{
-                fontSize: 12,
-                padding: '6px 10px',
-                borderRadius: 10,
-                background: 'rgba(255,255,255,0.10)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                color: 'rgba(255,255,255,0.92)',
-                cursor: 'pointer',
-              }}
-            >
-              Reset view
-            </button>
-            <ShareButton selectedAgentId={selectedId} />
-          </div>
+          <button
+            onClick={resetView}
+            style={{
+              fontSize: 12,
+              padding: '6px 10px',
+              borderRadius: 10,
+              background: 'rgba(255,255,255,0.10)',
+              border: '1px solid rgba(255,255,255,0.14)',
+              color: 'rgba(255,255,255,0.92)',
+              cursor: 'pointer',
+            }}
+          >
+            Reset view
+          </button>
         </div>
         <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.45, marginTop: 6 }}>
           A living map of active Openwork agents.
@@ -1197,9 +1194,74 @@ export default function HomePage() {
       </div>
 
       {/* Wallet + token integration (hackathon requirement) */}
-      <div style={{ position: 'fixed', right: 16, bottom: 16, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-end' }}>
-        <WalletPanel />
-      </div>
+      <button
+        onClick={() => setWalletOpen(true)}
+        style={{
+          position: 'fixed',
+          right: 16,
+          bottom: 'calc(16px + env(safe-area-inset-bottom) + 64px)',
+          zIndex: 5000,
+          padding: '10px 14px',
+          borderRadius: 999,
+          background: 'rgba(0,0,0,0.62)',
+          border: '1px solid rgba(255,255,255,0.16)',
+          color: 'rgba(255,255,255,0.95)',
+          fontSize: 13,
+          fontWeight: 700,
+          cursor: 'pointer',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          marginBottom: 'env(safe-area-inset-bottom)',
+        }}
+      >
+        Wallet / Token
+      </button>
+
+      {walletOpen ? (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 3000,
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+          }}
+          onClick={() => setWalletOpen(false)}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              left: 16,
+              right: 16,
+              bottom: 16,
+              maxWidth: 420,
+              margin: '0 auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <button
+                onClick={() => setWalletOpen(false)}
+                style={{
+                  fontSize: 12,
+                  padding: '8px 12px',
+                  borderRadius: 999,
+                  background: 'rgba(0,0,0,0.62)',
+                  border: '1px solid rgba(255,255,255,0.14)',
+                  color: 'rgba(255,255,255,0.92)',
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <WalletPanel />
+          </div>
+        </div>
+      ) : null}
 
       <div
         style={{
@@ -1215,12 +1277,12 @@ export default function HomePage() {
           opacity: 0.92,
           maxWidth: 580,
           boxShadow: '0 18px 40px rgba(0,0,0,0.35)',
+          zIndex: 1000,
         }}
       >
-        Can't find yourself? Be active on Openwork (submit/post), then refresh.
+        Can’t find yourself? Be active on Openwork (submit/post), then refresh.
+        <div style={{ marginTop: 6, fontSize: 10, opacity: 0.65 }}>build: {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || 'local'}</div>
       </div>
-
-      <OnboardingTooltip />
     </main>
   );
 }

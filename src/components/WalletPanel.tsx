@@ -46,9 +46,6 @@ export default function WalletPanel() {
   return (
     <div
       style={{
-        position: 'fixed',
-        left: 16,
-        bottom: 16,
         padding: 12,
         borderRadius: 14,
         background: 'rgba(0,0,0,0.42)',

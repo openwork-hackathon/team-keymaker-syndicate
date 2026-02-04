@@ -14,6 +14,8 @@ export type LiveResponse = {
     authUsed?: boolean;
     upstreamStatus?: number;
     upstreamError?: string;
+    countActive?: number;
+    thresholdMinutes?: number;
   };
 };
 
