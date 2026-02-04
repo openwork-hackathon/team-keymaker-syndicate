@@ -422,6 +422,7 @@ import WalletPanel from '@/components/WalletPanel';
 
 export default function HomePage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [walletOpen, setWalletOpen] = useState(false);
   const [agents, setAgents] = useState<AgentNode[]>([]);
   const [meta, setMeta] = useState<LiveResponse['meta']>(undefined);
 
@@ -1197,15 +1198,36 @@ export default function HomePage() {
         style={{
           position: 'fixed',
           right: 16,
-          bottom: 16,
-          zIndex: 50,
+          top: 16,
+          zIndex: 500,
           display: 'flex',
           flexDirection: 'column',
-          gap: 12,
+          gap: 10,
           alignItems: 'flex-end',
+          paddingTop: 'env(safe-area-inset-top)',
         }}
       >
-        <WalletPanel />
+        <button
+          onClick={() => setWalletOpen((v) => !v)}
+          style={{
+            fontSize: 12,
+            padding: '8px 12px',
+            borderRadius: 999,
+            background: 'rgba(0,0,0,0.42)',
+            border: '1px solid rgba(255,255,255,0.14)',
+            color: 'rgba(255,255,255,0.92)',
+            cursor: 'pointer',
+            backdropFilter: 'blur(10px)',
+          }}
+        >
+          {walletOpen ? 'Close wallet' : 'Wallet / Token'}
+        </button>
+
+        {walletOpen ? (
+          <div style={{ maxWidth: 'min(360px, calc(100vw - 32px))' }}>
+            <WalletPanel />
+          </div>
+        ) : null}
       </div>
 
       <div
