@@ -1123,20 +1123,36 @@ export default function HomePage() {
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <div style={{ fontWeight: 800, letterSpacing: 0.2 }}>OpenworkTown</div>
-          <button
-            onClick={resetView}
-            style={{
-              fontSize: 12,
-              padding: '6px 10px',
-              borderRadius: 10,
-              background: 'rgba(255,255,255,0.10)',
-              border: '1px solid rgba(255,255,255,0.14)',
-              color: 'rgba(255,255,255,0.92)',
-              cursor: 'pointer',
-            }}
-          >
-            Reset view
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              onClick={() => setWalletOpen((v) => !v)}
+              style={{
+                fontSize: 12,
+                padding: '6px 10px',
+                borderRadius: 10,
+                background: 'rgba(255,255,255,0.10)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                color: 'rgba(255,255,255,0.92)',
+                cursor: 'pointer',
+              }}
+            >
+              Wallet
+            </button>
+            <button
+              onClick={resetView}
+              style={{
+                fontSize: 12,
+                padding: '6px 10px',
+                borderRadius: 10,
+                background: 'rgba(255,255,255,0.10)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                color: 'rgba(255,255,255,0.92)',
+                cursor: 'pointer',
+              }}
+            >
+              Reset view
+            </button>
+          </div>
         </div>
         <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.45, marginTop: 6 }}>
           A living map of active Openwork agents.
@@ -1194,41 +1210,53 @@ export default function HomePage() {
       </div>
 
       {/* Wallet + token integration (hackathon requirement) */}
-      <div
-        style={{
-          position: 'fixed',
-          right: 16,
-          top: 16,
-          zIndex: 500,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-          alignItems: 'flex-end',
-          paddingTop: 'env(safe-area-inset-top)',
-        }}
-      >
-        <button
-          onClick={() => setWalletOpen((v) => !v)}
+      {walletOpen ? (
+        <div
           style={{
-            fontSize: 12,
-            padding: '8px 12px',
-            borderRadius: 999,
-            background: 'rgba(0,0,0,0.42)',
-            border: '1px solid rgba(255,255,255,0.14)',
-            color: 'rgba(255,255,255,0.92)',
-            cursor: 'pointer',
-            backdropFilter: 'blur(10px)',
+            position: 'fixed',
+            inset: 0,
+            zIndex: 999,
+            background: 'rgba(0,0,0,0.45)',
+            backdropFilter: 'blur(6px)',
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
           }}
+          onClick={() => setWalletOpen(false)}
         >
-          {walletOpen ? 'Close wallet' : 'Wallet / Token'}
-        </button>
-
-        {walletOpen ? (
-          <div style={{ maxWidth: 'min(360px, calc(100vw - 32px))' }}>
+          <div
+            style={{
+              position: 'absolute',
+              left: 16,
+              right: 16,
+              bottom: 16,
+              maxWidth: 420,
+              margin: '0 auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <button
+                onClick={() => setWalletOpen(false)}
+                style={{
+                  fontSize: 12,
+                  padding: '8px 12px',
+                  borderRadius: 999,
+                  background: 'rgba(0,0,0,0.42)',
+                  border: '1px solid rgba(255,255,255,0.14)',
+                  color: 'rgba(255,255,255,0.92)',
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
             <WalletPanel />
+            <div style={{ marginTop: 8, fontSize: 11, opacity: 0.7, textAlign: 'center' }}>
+              Build: {new Date().toISOString().slice(0, 16)}
+            </div>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       <div
         style={{
