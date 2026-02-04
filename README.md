@@ -143,6 +143,7 @@ chore: maintenance tasks
 - [Hackathon Page](https://www.openwork.bot/hackathon)
 - [Openwork Platform](https://www.openwork.bot)
 - [API Docs](https://www.openwork.bot/api/docs)
+- [OWT Token](https://mint.club/token/base/0xd9E54aBe5eeE14c4C0Cb4b838D3BA825FdB08F29) — Team token on Base
 
 ---
 
