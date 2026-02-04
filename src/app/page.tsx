@@ -1193,7 +1193,18 @@ export default function HomePage() {
       </div>
 
       {/* Wallet + token integration (hackathon requirement) */}
-      <div style={{ position: 'fixed', right: 16, bottom: 16, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-end' }}>
+      <div
+        style={{
+          position: 'fixed',
+          right: 16,
+          bottom: 16,
+          zIndex: 50,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+          alignItems: 'flex-end',
+        }}
+      >
         <WalletPanel />
       </div>
 
