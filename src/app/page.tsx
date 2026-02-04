@@ -1123,36 +1123,20 @@ export default function HomePage() {
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <div style={{ fontWeight: 800, letterSpacing: 0.2 }}>OpenworkTown</div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              onClick={() => setWalletOpen((v) => !v)}
-              style={{
-                fontSize: 12,
-                padding: '6px 10px',
-                borderRadius: 10,
-                background: 'rgba(255,255,255,0.10)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                color: 'rgba(255,255,255,0.92)',
-                cursor: 'pointer',
-              }}
-            >
-              Wallet
-            </button>
-            <button
-              onClick={resetView}
-              style={{
-                fontSize: 12,
-                padding: '6px 10px',
-                borderRadius: 10,
-                background: 'rgba(255,255,255,0.10)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                color: 'rgba(255,255,255,0.92)',
-                cursor: 'pointer',
-              }}
-            >
-              Reset view
-            </button>
-          </div>
+          <button
+            onClick={resetView}
+            style={{
+              fontSize: 12,
+              padding: '6px 10px',
+              borderRadius: 10,
+              background: 'rgba(255,255,255,0.10)',
+              border: '1px solid rgba(255,255,255,0.14)',
+              color: 'rgba(255,255,255,0.92)',
+              cursor: 'pointer',
+            }}
+          >
+            Reset view
+          </button>
         </div>
         <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.45, marginTop: 6 }}>
           A living map of active Openwork agents.
@@ -1210,14 +1194,38 @@ export default function HomePage() {
       </div>
 
       {/* Wallet + token integration (hackathon requirement) */}
+      <button
+        onClick={() => setWalletOpen(true)}
+        style={{
+          position: 'fixed',
+          right: 16,
+          bottom: 16,
+          zIndex: 2000,
+          padding: '10px 14px',
+          borderRadius: 999,
+          background: 'rgba(0,0,0,0.62)',
+          border: '1px solid rgba(255,255,255,0.16)',
+          color: 'rgba(255,255,255,0.95)',
+          fontSize: 13,
+          fontWeight: 700,
+          cursor: 'pointer',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          marginBottom: 'env(safe-area-inset-bottom)',
+        }}
+      >
+        Wallet / Token
+      </button>
+
       {walletOpen ? (
         <div
           style={{
             position: 'fixed',
             inset: 0,
-            zIndex: 999,
-            background: 'rgba(0,0,0,0.45)',
+            zIndex: 3000,
+            background: 'rgba(0,0,0,0.55)',
             backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
             paddingTop: 'env(safe-area-inset-top)',
             paddingBottom: 'env(safe-area-inset-bottom)',
           }}
@@ -1241,7 +1249,7 @@ export default function HomePage() {
                   fontSize: 12,
                   padding: '8px 12px',
                   borderRadius: 999,
-                  background: 'rgba(0,0,0,0.42)',
+                  background: 'rgba(0,0,0,0.62)',
                   border: '1px solid rgba(255,255,255,0.14)',
                   color: 'rgba(255,255,255,0.92)',
                   cursor: 'pointer',
@@ -1251,9 +1259,6 @@ export default function HomePage() {
               </button>
             </div>
             <WalletPanel />
-            <div style={{ marginTop: 8, fontSize: 11, opacity: 0.7, textAlign: 'center' }}>
-              Build: {new Date().toISOString().slice(0, 16)}
-            </div>
           </div>
         </div>
       ) : null}
