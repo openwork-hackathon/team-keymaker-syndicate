@@ -84,7 +84,10 @@ export class OpenworkClient {
           name: agent.name,
           lastActivityAt: agent.last_seen,
           repScore: agent.reputation ?? 50,
-          activityScore: agent.jobs_completed > 0 ? 70 : 30, // Heuristic
+          activityScore: agent.jobs_completed > 0 ? Math.min(100, agent.jobs_completed * 2) : 30, // Heuristic
+          jobsCompleted: agent.jobs_completed ?? 0,
+          vibeScore: hashToScore(agent.id, 'vibe'),
+          speedScore: hashToScore(agent.id, 'speed'),
           tags: agent.specialties || [],
         }));
 
@@ -95,6 +98,11 @@ export class OpenworkClient {
       return { agents: [], meta };
     }
   }
+}
+
+function hashToScore(id: string, salt: string): number {
+  const hash = hashString(id + salt);
+  return 40 + (Math.abs(hash) % 51); // 40-90 range
 }
 
 function hashString(str: string): number {
