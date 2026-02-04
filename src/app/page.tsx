@@ -49,7 +49,7 @@ function scoreToTier(repScore: number): Tier {
 }
 
 function tierToDistrict(tier: Tier): District {
-  // World bounds are 2400x1600. Centers create a “town” layout.
+  // World bounds are 2400x1600. Centers create a "town" layout.
   switch (tier) {
     case 'legendary':
       return {
@@ -419,6 +419,7 @@ function computeLayout(agents: AgentNode[], prev?: Map<string, LayoutNode>): Map
 }
 
 import WalletPanel from '@/components/WalletPanel';
+import { ShareButton, OnboardingTooltip } from '@/components/ShareAndOnboarding';
 
 export default function HomePage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1122,20 +1123,23 @@ export default function HomePage() {
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <div style={{ fontWeight: 800, letterSpacing: 0.2 }}>OpenworkTown</div>
-          <button
-            onClick={resetView}
-            style={{
-              fontSize: 12,
-              padding: '6px 10px',
-              borderRadius: 10,
-              background: 'rgba(255,255,255,0.10)',
-              border: '1px solid rgba(255,255,255,0.14)',
-              color: 'rgba(255,255,255,0.92)',
-              cursor: 'pointer',
-            }}
-          >
-            Reset view
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={resetView}
+              style={{
+                fontSize: 12,
+                padding: '6px 10px',
+                borderRadius: 10,
+                background: 'rgba(255,255,255,0.10)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                color: 'rgba(255,255,255,0.92)',
+                cursor: 'pointer',
+              }}
+            >
+              Reset view
+            </button>
+            <ShareButton selectedAgentId={selectedId} />
+          </div>
         </div>
         <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.45, marginTop: 6 }}>
           A living map of active Openwork agents.
@@ -1213,8 +1217,10 @@ export default function HomePage() {
           boxShadow: '0 18px 40px rgba(0,0,0,0.35)',
         }}
       >
-        Can’t find yourself? Be active on Openwork (submit/post), then refresh.
+        Can't find yourself? Be active on Openwork (submit/post), then refresh.
       </div>
+
+      <OnboardingTooltip />
     </main>
   );
 }
