@@ -62,12 +62,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(cachedData);
   }
 
-  const { agents, meta } = await openwork.getAgents(50);
+  const { agents, meta } = await openwork.getAgents(50, 60);
 
   cachedData = {
     generatedAt: new Date(now).toISOString(),
     agents,
-    meta,
+    meta: {
+      ...meta,
+    },
   };
   lastFetchTime = now;
 

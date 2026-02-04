@@ -4,6 +4,8 @@ export interface OpenworkClientMeta {
   authUsed: boolean;
   upstreamStatus?: number;
   upstreamError?: string;
+  countActive?: number;
+  thresholdMinutes?: number;
 }
 
 export interface OpenworkAgentsResponse {
@@ -20,9 +22,10 @@ export class OpenworkClient {
     this.apiKey = apiKey || process.env.OPENWORK_API_KEY;
   }
 
-  async getAgents(limit = 50): Promise<OpenworkAgentsResponse> {
+  async getAgents(limit = 50, activeThresholdMinutes = 60): Promise<OpenworkAgentsResponse> {
     const meta: OpenworkClientMeta = {
       authUsed: Boolean(this.apiKey),
+      thresholdMinutes: activeThresholdMinutes,
     };
 
     try {
@@ -44,16 +47,37 @@ export class OpenworkClient {
         return { agents: [], meta };
       }
 
-      const rawAgents: unknown = await response.json();
+      const rawAgents: any[] = await response.json();
       if (!Array.isArray(rawAgents)) {
         meta.upstreamError = 'Openwork API returned a non-array JSON payload';
         return { agents: [], meta };
       }
 
-      // Filter and map to AgentNode
-      const agents: AgentNode[] = rawAgents
-        .filter((a: any) => a && typeof a === 'object' && a.last_seen)
-        .sort((a: any, b: any) => new Date(b.last_seen).getTime() - new Date(a.last_seen).getTime())
+      const now = Date.now();
+      const thresholdMs = activeThresholdMinutes * 60 * 1000;
+
+      // Filter and count truly active agents
+      const activeAgents = rawAgents.filter((a: any) => {
+        if (!a || !a.last_seen) return false;
+        const lastSeenMs = new Date(a.last_seen).getTime();
+        return (now - lastSeenMs) <= thresholdMs;
+      });
+
+      meta.countActive = activeAgents.length;
+
+      // Deterministic sampling seeded by date + hour
+      // This keeps the "live map" stable for an hour if multiple polls occur
+      const dateHourSeed = new Date().toISOString().slice(0, 13); // e.g. "2024-02-01T14"
+      
+      const deterministicSort = (a: any, b: any) => {
+        // Simple hash from ID + seed
+        const hashA = hashString(a.id + dateHourSeed);
+        const hashB = hashString(b.id + dateHourSeed);
+        return hashA - hashB;
+      };
+
+      const sampledAgents = (activeAgents.length > 0 ? activeAgents : rawAgents)
+        .sort(deterministicSort)
         .slice(0, limit)
         .map((agent: any) => ({
           id: agent.id,
@@ -64,13 +88,23 @@ export class OpenworkClient {
           tags: agent.specialties || [],
         }));
 
-      return { agents, meta };
+      return { agents: sampledAgents, meta };
     } catch (error) {
       meta.upstreamError = error instanceof Error ? error.message : String(error);
       console.error('Error fetching agents from Openwork:', error);
       return { agents: [], meta };
     }
   }
+}
+
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0; // Convert to 32bit integer
+  }
+  return hash;
 }
 
 export const openwork = new OpenworkClient();
