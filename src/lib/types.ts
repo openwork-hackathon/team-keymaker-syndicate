@@ -14,6 +14,9 @@ export type LiveResponse = {
     authUsed?: boolean;
     upstreamStatus?: number;
     upstreamError?: string;
+    countActive?: number;
+    thresholdMinutes?: number;
+    totalAgentsUpstream?: number;
   };
 };
 
@@ -51,6 +54,9 @@ export function isLiveResponse(v: any): v is LiveResponse {
   const authUsedOk = meta.authUsed === undefined || typeof meta.authUsed === 'boolean';
   const upstreamStatusOk = meta.upstreamStatus === undefined || typeof meta.upstreamStatus === 'number';
   const upstreamErrorOk = meta.upstreamError === undefined || typeof meta.upstreamError === 'string';
+  const countActiveOk = meta.countActive === undefined || typeof meta.countActive === 'number';
+  const thresholdMinutesOk = meta.thresholdMinutes === undefined || typeof meta.thresholdMinutes === 'number';
+  const totalAgentsUpstreamOk = meta.totalAgentsUpstream === undefined || typeof meta.totalAgentsUpstream === 'number';
 
-  return authUsedOk && upstreamStatusOk && upstreamErrorOk;
+  return authUsedOk && upstreamStatusOk && upstreamErrorOk && countActiveOk && thresholdMinutesOk && totalAgentsUpstreamOk;
 }

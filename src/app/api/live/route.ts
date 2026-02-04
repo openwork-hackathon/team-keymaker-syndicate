@@ -57,19 +57,69 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
-  // Simple in-memory cache check
-  if (cachedData && (now - lastFetchTime) < CACHE_TTL * 1000) {
+  const { searchParams } = new URL(req.url);
+  const thresholdParam = searchParams.get('threshold');
+  const thresholdMinutes = thresholdParam ? parseInt(thresholdParam, 10) : 30;
+  
+  // Simple in-memory cache check - only if threshold is default
+  // (In a real app we might cache by threshold, but for MVP let's keep it simple)
+  if (thresholdMinutes === 30 && cachedData && (now - lastFetchTime) < CACHE_TTL * 1000) {
     return NextResponse.json(cachedData);
   }
 
-  const { agents, meta } = await openwork.getAgents(50);
+  const { agents: allAgents, meta: upstreamMeta } = await openwork.getAgents(200);
 
-  cachedData = {
-    generatedAt: new Date(now).toISOString(),
-    agents,
-    meta,
+  // Filter for active agents
+  const thresholdMs = thresholdMinutes * 60 * 1000;
+  const activeAgents = allAgents.filter(a => {
+    const lastSeen = new Date(a.lastActivityAt).getTime();
+    return (now - lastSeen) <= thresholdMs;
+  });
+
+  // Deterministic sampling seeded by hour and day
+  // This keeps the map stable for 1 hour
+  const date = new Date();
+  const seedString = `${date.getUTCFullYear()}-${date.getUTCMonth()}-${date.getUTCDate()}-${date.getUTCHours()}`;
+  
+  // Simple hash function for seeding
+  const hashString = (s: string) => {
+    let hash = 0;
+    for (let i = 0; i < s.length; i++) {
+      hash = ((hash << 5) - hash) + s.charCodeAt(i);
+      hash |= 0;
+    }
+    return hash;
   };
-  lastFetchTime = now;
 
-  return NextResponse.json(cachedData);
+  const seed = hashString(seedString);
+  
+  // Deterministic shuffle using the seed
+  const seededRandom = (s: number) => {
+    const x = Math.sin(s) * 10000;
+    return x - Math.floor(x);
+  };
+
+  const sampledAgents = activeAgents
+    .map(a => ({ a, sort: seededRandom(seed + hashString(a.id)) }))
+    .sort((a, b) => a.sort - b.sort)
+    .map(({ a }) => a)
+    .slice(0, 50);
+
+  const responseBody: LiveResponse = {
+    generatedAt: new Date(now).toISOString(),
+    agents: sampledAgents,
+    meta: {
+      ...upstreamMeta,
+      countActive: activeAgents.length,
+      thresholdMinutes,
+      totalAgentsUpstream: allAgents.length,
+    },
+  };
+
+  if (thresholdMinutes === 30) {
+    cachedData = responseBody;
+    lastFetchTime = now;
+  }
+
+  return NextResponse.json(responseBody);
 }
