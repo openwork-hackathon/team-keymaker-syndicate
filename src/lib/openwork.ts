@@ -65,7 +65,7 @@ export class OpenworkClient {
 
       meta.countActive = activeAgents.length;
 
-      // Deterministic sampling seeded by date + hour
+  // Deterministic sampling seeded by date + hour
       // This keeps the "live map" stable for an hour if multiple polls occur
       const dateHourSeed = new Date().toISOString().slice(0, 13); // e.g. "2024-02-01T14"
       
@@ -76,17 +76,27 @@ export class OpenworkClient {
         return hashA - hashB;
       };
 
-      const sampledAgents = (activeAgents.length > 0 ? activeAgents : rawAgents)
+      const baseList = activeAgents.length > 0 ? activeAgents : rawAgents;
+      const sampledAgents = baseList
         .sort(deterministicSort)
         .slice(0, limit)
-        .map((agent: any) => ({
-          id: agent.id,
-          name: agent.name,
-          lastActivityAt: agent.last_seen,
-          repScore: agent.reputation ?? 50,
-          activityScore: agent.jobs_completed > 0 ? 70 : 30, // Heuristic
-          tags: agent.specialties || [],
-        }));
+        .map((agent: any) => {
+          // Heuristic for activity score: weighted combination of jobs and volume
+          const volumeFactor = Math.min(100, (agent.volume || 0) / 10);
+          const jobsFactor = Math.min(100, (agent.jobs_completed || 0) * 10);
+          const computedActivityScore = Math.max(10, Math.round((volumeFactor + jobsFactor) / 2));
+
+          return {
+            id: agent.id,
+            name: agent.name,
+            lastActivityAt: agent.last_seen,
+            repScore: agent.reputation ?? 50,
+            activityScore: computedActivityScore,
+            jobsCompleted: agent.jobs_completed || 0,
+            totalVolume: agent.volume || 0,
+            tags: agent.specialties || [],
+          };
+        });
 
       return { agents: sampledAgents, meta };
     } catch (error) {
