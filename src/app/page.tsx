@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentNode, LiveResponse } from '@/lib/types';
 import { isLiveResponse } from '@/lib/types';
-import { KENNEY_TILE_SIZE, atlasSrcRect, makeWorldTilemap, TILESET, type TileKind, type WorldTilemap, type Prop, type PropKind } from '@/lib/tilemap';
+import { KENNEY_TILE_SIZE, atlasSrcRect, makeWorldTilemap, TILESET, type TileKind, type WorldTilemap, type Prop, type PropKind, neighborMask, waterAutotilePos, pathEdgeInfo } from '@/lib/tilemap';
 
 type Star = { x: number; y: number; r: number; a: number };
 
@@ -700,23 +700,51 @@ export default function HomePage() {
       for (let y = y0; y < y1; y++) {
         for (let x = x0; x < x1; x++) {
           const k = tm.map[y * tm.cols + x] as TileKind;
-          const variant = TILESET[k];
-          // choose deterministic alt
-          const h = (x * 73856093) ^ (y * 19349663) ^ (k === 'path' ? 7 : k === 'water' ? 11 : 3);
-          const alts = variant.alt || [];
-          const pos = alts.length ? alts[Math.abs(h) % alts.length] : variant.base;
-
-          const { sx, sy, sw, sh } = atlasSrcRect(pos);
           const sp = worldToScreen(vp, x * TILE, y * TILE);
           const sz = TILE * vp.scale;
 
-          if (imgReady) {
-            ctx.imageSmoothingEnabled = false;
-            ctx.drawImage(img!, sx, sy, sw, sh, sp.x, sp.y, sz, sz);
-          } else {
+          if (!imgReady) {
             // fallback until image loads
             ctx.fillStyle = k === 'water' ? '#0a2038' : k === 'path' ? '#3a2f22' : '#0f2a1f';
             ctx.fillRect(sp.x, sp.y, sz, sz);
+            continue;
+          }
+
+          ctx.imageSmoothingEnabled = false;
+
+          if (k === 'water') {
+            // Issue #55: Water autotile with shoreline edges + corners
+            const mask = neighborMask(tm.map, tm.cols, tm.rows, x, y, 'water');
+            const pos = waterAutotilePos(mask);
+            const { sx, sy, sw, sh } = atlasSrcRect(pos);
+            ctx.drawImage(img!, sx, sy, sw, sh, sp.x, sp.y, sz, sz);
+          } else if (k === 'path') {
+            // Issue #54: Path with soft grass-border insets on edges
+            const info = pathEdgeInfo(tm.map, tm.cols, tm.rows, x, y);
+            const { sx, sy, sw, sh } = atlasSrcRect(info.pos);
+            ctx.drawImage(img!, sx, sy, sw, sh, sp.x, sp.y, sz, sz);
+
+            // Draw grass-colored border insets on edges facing grass
+            const inset = Math.max(2, sz * 0.12);
+            ctx.fillStyle = 'rgba(90,140,40,0.35)';
+            if (info.edgeN) ctx.fillRect(sp.x, sp.y, sz, inset);
+            if (info.edgeS) ctx.fillRect(sp.x, sp.y + sz - inset, sz, inset);
+            if (info.edgeW) ctx.fillRect(sp.x, sp.y, inset, sz);
+            if (info.edgeE) ctx.fillRect(sp.x + sz - inset, sp.y, inset, sz);
+          } else {
+            // Issue #53: Grass with improved randomization
+            // Mix base tile ~30% of the time for natural variation
+            const variant = TILESET.grass;
+            const h = (x * 73856093) ^ (y * 19349663) ^ 3;
+            const alts = variant.alt || [];
+            const useBase = (Math.abs(h) % 10) < 3;
+            const pos = useBase
+              ? variant.base
+              : alts.length
+                ? alts[Math.abs(h >> 4) % alts.length]
+                : variant.base;
+            const { sx, sy, sw, sh } = atlasSrcRect(pos);
+            ctx.drawImage(img!, sx, sy, sw, sh, sp.x, sp.y, sz, sz);
           }
         }
       }
