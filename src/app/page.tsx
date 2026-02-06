@@ -1,6 +1,6 @@
 'use client';
 
-// Hot reload test comment
+// Hot reload test comment 2
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentNode, LiveResponse } from '@/lib/types';
 import { isLiveResponse } from '@/lib/types';
