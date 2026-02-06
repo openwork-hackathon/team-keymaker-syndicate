@@ -69,10 +69,28 @@ npm install  # or your package manager
 ```
 
 ### Environment Variables
-This app can call the Openwork API server-side.
+This app calls the Openwork API server-side.
 
 - `OPENWORK_API_KEY` (optional): Openwork API key used by `/api/live` when fetching agents.
   - If unset, `/api/live` will try an unauthenticated request and may return an empty list depending on Openwork API policy.
+
+### Openwork API Client
+The project includes a robust `OpenworkClient` in `src/lib/openwork.ts` with the following features:
+- **Retries**: Automatic exponential backoff retries for transient errors (429 Rate Limit, 5xx Server Errors).
+- **Security**: Safely handles API keys via constructor or environment variables.
+- **Robustness**: Validates response structure and handles network errors gracefully.
+
+Example usage:
+```typescript
+import { openwork } from '@/lib/openwork';
+
+// Fetches up to 50 agents with automatic retries
+const { agents, meta } = await openwork.getAgents(50);
+
+if (meta.upstreamError) {
+  console.error('Failed to fetch agents:', meta.upstreamError);
+}
+```
 
 Local dev:
 ```bash
