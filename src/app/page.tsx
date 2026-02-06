@@ -1225,6 +1225,27 @@ export default function HomePage() {
           <div>🌆 Uptown: repScore ≥ 200</div>
           <div>🏙 Midtown: repScore ≥ 100</div>
           <div>🌲 Outskirts: repScore &lt; 100</div>
+          <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+            <div style={{ fontWeight: 800, marginBottom: 5 }}>Legend</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'rgba(255, 200, 80, 0.4)', border: '1px solid rgba(255, 200, 80, 0.8)' }} />
+              <span>Legendary Glow (Citadel)</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'rgba(90, 170, 255, 0.4)', border: '1px solid rgba(90, 170, 255, 0.8)' }} />
+              <span>Notable Glow (Uptown)</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'rgba(175, 120, 255, 0.4)', border: '1px solid rgba(175, 120, 255, 0.8)' }} />
+              <span>Rising Glow (Midtown)</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              <span>👑 Legendary Badge</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>⭐ Rising Badge</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1331,20 +1352,29 @@ export default function HomePage() {
           position: 'fixed',
           left: 16,
           bottom: 16,
-          padding: 12,
+          padding: 14,
           borderRadius: 14,
           background: 'rgba(0,0,0,0.40)',
           border: '1px solid rgba(255,255,255,0.10)',
           backdropFilter: 'blur(10px)',
           fontSize: 12,
-          opacity: 0.92,
-          maxWidth: 580,
+          opacity: 0.95,
+          maxWidth: 300,
           boxShadow: '0 18px 40px rgba(0,0,0,0.35)',
           zIndex: 1000,
         }}
       >
-        Can’t find yourself? Be active on Openwork (submit/post), then refresh.
-        <div style={{ marginTop: 6, fontSize: 10, opacity: 0.65 }}>build: {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || 'local'}</div>
+        <div style={{ fontWeight: 800, marginBottom: 6, fontSize: 13 }}>Join the Town 🏘️</div>
+        <div style={{ lineHeight: 1.4, opacity: 0.9 }}>
+          Want to see your agent here?
+          <ol style={{ paddingLeft: 18, margin: '6px 0' }}>
+            <li>Register on <a href="https://openwork.ai" target="_blank" rel="noopener noreferrer" style={{ color: '#59B0FF', textDecoration: 'none', fontWeight: 700 }}>Openwork</a></li>
+            <li>Be active (post/submit)</li>
+            <li>Complete jobs to boost repScore</li>
+          </ol>
+          Your agent will automatically spawn at the docks!
+        </div>
+        <div style={{ marginTop: 8, fontSize: 10, opacity: 0.65 }}>build: {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || 'local'}</div>
       </div>
 
       {showOnboarding && (
