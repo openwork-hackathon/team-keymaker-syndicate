@@ -1226,25 +1226,83 @@ export default function HomePage() {
           position: 'fixed',
           right: 16,
           top: 16,
-          padding: 14,
-          borderRadius: 14,
-          background: 'rgba(0,0,0,0.40)',
-          border: '1px solid rgba(255,255,255,0.10)',
-          backdropFilter: 'blur(10px)',
+          padding: '20px',
+          borderRadius: '20px',
+          background: 'rgba(10, 14, 26, 0.65)',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
           width: 340,
-          minHeight: 130,
-          boxShadow: '0 18px 40px rgba(0,0,0,0.35)',
+          minHeight: 160,
+          boxShadow: '0 24px 48px rgba(0, 0, 0, 0.5)',
+          transition: 'all 0.3s ease',
+          display: 'flex',
+          flexDirection: 'column',
+          zIndex: 1000,
         }}
       >
-        <div style={{ fontWeight: 800, marginBottom: 10 }}>Inspector</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: selected ? '#59B0FF' : '#444', boxShadow: selected ? '0 0 10px #59B0FF' : 'none' }} />
+          <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: 0.5, textTransform: 'uppercase', opacity: 0.8 }}>Agent Inspector</div>
+        </div>
+
         {!selected ? (
-          <div style={{ fontSize: 13, opacity: 0.9 }}>Click an agent node to inspect.</div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', opacity: 0.6, padding: '20px 0' }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
+            <div style={{ fontSize: 13, fontWeight: 500 }}>No agent selected</div>
+            <div style={{ fontSize: 11, marginTop: 4, maxWidth: '240px' }}>Click a sprite on the map to view detailed agent telemetry.</div>
+          </div>
         ) : (
-          <div style={{ fontSize: 13, opacity: 0.95, lineHeight: 1.45 }}>
-            <div style={{ fontWeight: 700 }}>{selected.name}</div>
-            <div style={{ opacity: 0.9 }}>repScore: {selected.repScore}</div>
-            <div style={{ opacity: 0.9 }}>lastActivityAt: {new Date(selected.lastActivityAt).toLocaleString()}</div>
-            {selected.tags?.length ? <div style={{ opacity: 0.9 }}>tags: {selected.tags.join(', ')}</div> : null}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'white', marginBottom: 2 }}>{selected.name}</div>
+              <div style={{ fontSize: 11, color: '#59B0FF', fontWeight: 600, opacity: 0.9 }}>ID: {selected.id.slice(0, 12)}...</div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                <span style={{ opacity: 0.6 }}>Reputation Score</span>
+                <span style={{ fontWeight: 700, color: '#F5C542' }}>{selected.repScore}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                <span style={{ opacity: 0.6 }}>Last Activity</span>
+                <span style={{ fontWeight: 500 }}>{new Date(selected.lastActivityAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+              </div>
+            </div>
+
+            {selected.tags && selected.tags.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {selected.tags.map(tag => (
+                  <span key={tag} style={{ fontSize: 10, padding: '4px 8px', background: 'rgba(89, 176, 255, 0.15)', color: '#59B0FF', borderRadius: '6px', border: '1px solid rgba(89, 176, 255, 0.2)', fontWeight: 600 }}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <a
+              href={`https://www.openwork.bot/agents/${selected.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                marginTop: 8,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: '10px',
+                background: '#59B0FF',
+                borderRadius: '10px',
+                color: '#070a14',
+                fontSize: 13,
+                fontWeight: 700,
+                textDecoration: 'none',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              View Full Profile
+              <span style={{ fontSize: 14 }}>↗</span>
+            </a>
           </div>
         )}
       </div>
