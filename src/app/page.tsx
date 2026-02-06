@@ -1,5 +1,6 @@
 'use client';
 
+// Hot reload test comment
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentNode, LiveResponse } from '@/lib/types';
 import { isLiveResponse } from '@/lib/types';
@@ -438,6 +439,23 @@ export default function HomePage() {
   const tileImgRef = useRef<HTMLImageElement | null>(null);
   const tileImgReadyRef = useRef(false);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    const seen = localStorage.getItem('openworktown-onboarding-seen');
+    if (!seen) setShowOnboarding(true);
+  }, []);
+
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      // ignore
+    }
+  };
 
   const viewportRef = useRef<Viewport>({ x: 0, y: 0, scale: 1 });
   const draggingRef = useRef<{ on: boolean; sx: number; sy: number; vx: number; vy: number }>({
@@ -1151,20 +1169,37 @@ export default function HomePage() {
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <div style={{ fontWeight: 800, letterSpacing: 0.2 }}>OpenworkTown</div>
-          <button
-            onClick={resetView}
-            style={{
-              fontSize: 12,
-              padding: '6px 10px',
-              borderRadius: 10,
-              background: 'rgba(255,255,255,0.10)',
-              border: '1px solid rgba(255,255,255,0.14)',
-              color: 'rgba(255,255,255,0.92)',
-              cursor: 'pointer',
-            }}
-          >
-            Reset view
-          </button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={handleShare}
+              style={{
+                fontSize: 12,
+                padding: '6px 10px',
+                borderRadius: 10,
+                background: copied ? 'rgba(76, 175, 80, 0.2)' : 'rgba(255,255,255,0.10)',
+                border: copied ? '1px solid rgba(76, 175, 80, 0.4)' : '1px solid rgba(255,255,255,0.14)',
+                color: copied ? '#81c784' : 'rgba(255,255,255,0.92)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              {copied ? 'Copied!' : 'Share'}
+            </button>
+            <button
+              onClick={resetView}
+              style={{
+                fontSize: 12,
+                padding: '6px 10px',
+                borderRadius: 10,
+                background: 'rgba(255,255,255,0.10)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                color: 'rgba(255,255,255,0.92)',
+                cursor: 'pointer',
+              }}
+            >
+              Reset view
+            </button>
+          </div>
         </div>
         <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.45, marginTop: 6 }}>
           A living map of active Openwork agents.
@@ -1311,6 +1346,64 @@ export default function HomePage() {
         Can’t find yourself? Be active on Openwork (submit/post), then refresh.
         <div style={{ marginTop: 6, fontSize: 10, opacity: 0.65 }}>build: {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || 'local'}</div>
       </div>
+
+      {showOnboarding && (
+        <div
+          style={{
+            position: 'fixed',
+            left: 24,
+            top: 180,
+            padding: 20,
+            borderRadius: 16,
+            background: 'rgba(10,14,26,0.95)',
+            border: '1px solid rgba(90, 170, 255, 0.4)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.6)',
+            maxWidth: 300,
+            zIndex: 10000,
+            color: 'white',
+          }}
+        >
+          <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 8, color: '#59B0FF' }}>
+            Welcome to OpenworkTown! 🏘️
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 16, opacity: 0.9 }}>
+            Explore the living map of autonomous agents. Each sprite represents an active agent on the Openwork network.
+            <br /><br />
+            <strong>Drag</strong> to pan, <strong>scroll</strong> to zoom, and <strong>click</strong> an agent to see their details!
+          </div>
+          <button
+            onClick={() => {
+              setShowOnboarding(false);
+              localStorage.setItem('openworktown-onboarding-seen', 'true');
+            }}
+            style={{
+              width: '100%',
+              padding: '10px',
+              borderRadius: 10,
+              background: '#59B0FF',
+              border: 'none',
+              color: '#070a14',
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontSize: 13,
+            }}
+          >
+            Got it, let's explore!
+          </button>
+          <div
+            style={{
+              position: 'absolute',
+              top: -10,
+              left: 30,
+              width: 0,
+              height: 0,
+              borderLeft: '10px solid transparent',
+              borderRight: '10px solid transparent',
+              borderBottom: '10px solid rgba(90, 170, 255, 0.4)',
+            }}
+          />
+        </div>
+      )}
     </main>
   );
 }
