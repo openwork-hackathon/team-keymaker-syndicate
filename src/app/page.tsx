@@ -499,6 +499,9 @@ export default function HomePage() {
   const { writeContractAsync, isPending: tipPending } = useWriteContract();
   const { switchChainAsync } = useSwitchChain();
   const [tipStatus, setTipStatus] = useState<string | null>(null);
+  const [customTip, setCustomTip] = useState<string>('');
+  const [recentTips, setRecentTips] = useState<Array<{ id: string; name: string; amount: number; txHash?: string; at: number }>>([]);
+  const tippedUntilRef = useRef<Map<string, number>>(new Map());
 
   const selected = useMemo(
     () => agents.find((a) => a.id === selectedId) ?? null,
@@ -1083,6 +1086,18 @@ export default function HomePage() {
 
         // Skip drawing the building rectangle; sprites are primary
 
+        // Tip aura (temporary, judge-friendly)
+        {
+          const until = tippedUntilRef.current.get(a.id) ?? 0;
+          if (until > Date.now()) {
+            const tipPulse = 0.6 + 0.4 * Math.sin(t / 130);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, base * 0.75 + 22 * vp.scale, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(245, 197, 66, ' + (0.18 * tipPulse) + ')';
+            ctx.fill();
+          }
+        }
+
         // glow aura
         if (glow !== 'none') {
           ctx.beginPath();
@@ -1554,13 +1569,25 @@ export default function HomePage() {
                           if (chainId !== base.id) {
                             await switchChainAsync({ chainId: base.id });
                           }
+                          if (!myAddress) {
+                            setTipStatus('Connect your wallet to tip');
+                            return;
+                          }
                           const txHash = await writeContractAsync({
                             abi: ERC20_ABI,
                             address: OWT_TOKEN_ADDRESS,
                             functionName: 'transfer',
                             args: [to, parseUnits(String(amt), 18)],
                           });
-                          setTipStatus(`Tip sent: ${String(txHash).slice(0, 10)}…`);
+
+                          // local-only effects: aura + recent tips
+                          tippedUntilRef.current.set(selected.id, Date.now() + 30_000);
+                          setRecentTips((prev) => {
+                            const next = [{ id: selected.id, name: selected.name, amount: amt, txHash: String(txHash), at: Date.now() }, ...prev];
+                            return next.slice(0, 5);
+                          });
+
+                          setTipStatus(String(txHash));
                         } catch (e: any) {
                           setTipStatus(e?.shortMessage || e?.message || 'Tip failed');
                         }
@@ -1582,8 +1609,93 @@ export default function HomePage() {
                     </button>
                   ))}
                 </div>
+                <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    value={customTip}
+                    onChange={(e) => setCustomTip(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="Custom"
+                    style={{
+                      flex: 1,
+                      minWidth: 120,
+                      padding: '9px 10px',
+                      borderRadius: 10,
+                      background: 'rgba(255,255,255,0.08)',
+                      border: '1px solid rgba(255,255,255,0.14)',
+                      color: 'rgba(255,255,255,0.92)',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      outline: 'none',
+                    }}
+                  />
+                  <button
+                    disabled={tipPending}
+                    onClick={async () => {
+                      const to = selected.walletAddress!;
+                      const amt = Number(customTip);
+                      if (!Number.isFinite(amt) || amt <= 0) {
+                        setTipStatus('Enter a valid amount');
+                        return;
+                      }
+                      if (amt > 1000) {
+                        setTipStatus('Max tip is 1000 OWT');
+                        return;
+                      }
+                      if (!isAddress(to)) {
+                        setTipStatus('Invalid wallet address');
+                        return;
+                      }
+                      try {
+                        setTipStatus(null);
+                        if (chainId !== base.id) await switchChainAsync({ chainId: base.id });
+                        if (!myAddress) {
+                          setTipStatus('Connect your wallet to tip');
+                          return;
+                        }
+                        const txHash = await writeContractAsync({
+                          abi: ERC20_ABI,
+                          address: OWT_TOKEN_ADDRESS,
+                          functionName: 'transfer',
+                          args: [to, parseUnits(String(amt), 18)],
+                        });
+                        tippedUntilRef.current.set(selected.id, Date.now() + 30_000);
+                        setRecentTips((prev) => [{ id: selected.id, name: selected.name, amount: amt, txHash: String(txHash), at: Date.now() }, ...prev].slice(0, 5));
+                        setTipStatus(String(txHash));
+                      } catch (e: any) {
+                        setTipStatus(e?.shortMessage || e?.message || 'Tip failed');
+                      }
+                    }}
+                    style={{
+                      minWidth: 90,
+                      padding: '9px 10px',
+                      borderRadius: 10,
+                      background: 'rgba(245, 197, 66, 0.16)',
+                      border: '1px solid rgba(245, 197, 66, 0.32)',
+                      color: 'rgba(255,255,255,0.95)',
+                      fontSize: 12,
+                      fontWeight: 800,
+                      cursor: tipPending ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    Tip
+                  </button>
+                </div>
+
                 {tipStatus ? (
-                  <div style={{ marginTop: 8, fontSize: 11, opacity: 0.85, wordBreak: 'break-word' }}>{tipStatus}</div>
+                  <div style={{ marginTop: 8, fontSize: 11, opacity: 0.9, wordBreak: 'break-word' }}>
+                    {tipStatus.startsWith('0x') ? (
+                      <a
+                        href={`https://basescan.org/tx/${tipStatus}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: 'rgba(160,210,255,0.95)' }}
+                      >
+                        View tx on Basescan ↗
+                      </a>
+                    ) : (
+                      tipStatus
+                    )}
+                  </div>
                 ) : null}
               </div>
             ) : null}
@@ -1614,6 +1726,35 @@ export default function HomePage() {
       >
         Wallet / Token
       </button>
+
+      {/* Recent tips (local-only) */}
+      {recentTips.length ? (
+        <div
+          style={{
+            position: 'fixed',
+            left: 16,
+            bottom: 'calc(16px + env(safe-area-inset-bottom))',
+            zIndex: 4500,
+            padding: 10,
+            borderRadius: 12,
+            background: 'rgba(0,0,0,0.55)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            color: 'rgba(255,255,255,0.92)',
+            fontSize: 12,
+            maxWidth: 260,
+          }}
+        >
+          <div style={{ fontWeight: 900, marginBottom: 6, opacity: 0.9 }}>Recent tips</div>
+          {recentTips.map((t) => (
+            <div key={t.at} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, opacity: 0.92 }}>
+              <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
+              <div style={{ fontWeight: 900 }}>{t.amount} OWT</div>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {walletOpen ? (
         <div
