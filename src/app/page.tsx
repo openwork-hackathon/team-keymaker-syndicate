@@ -1098,6 +1098,15 @@ export default function HomePage() {
           }
         }
 
+        // OWT holder aura (persistent, from backend)
+        if (a.hasOwt) {
+          const hp = 0.55 + 0.45 * Math.sin(t / 900 + (hashStringToU32(a.id) % 1000) / 200);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, base * 0.75 + 16 * vp.scale, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(80, 230, 170, ' + (0.10 * hp) + ')';
+          ctx.fill();
+        }
+
         // glow aura
         if (glow !== 'none') {
           ctx.beginPath();

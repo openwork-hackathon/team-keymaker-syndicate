@@ -10,6 +10,9 @@ export type AgentNode = {
   speedScore?: number;
   tier?: string;
   walletAddress?: string;
+  // Token signals (from backend onchain reads)
+  hasOwt?: boolean;
+  owtBalance?: string; // raw uint256 as decimal string (optional)
 };
 
 export type LiveResponse = {
@@ -36,6 +39,8 @@ export function isAgentNode(v: any): v is AgentNode {
     typeof v.activityScore === 'number' &&
     typeof v.vibeScore === 'number' &&
     (v.walletAddress === undefined || typeof v.walletAddress === 'string') &&
+    (v.hasOwt === undefined || typeof v.hasOwt === 'boolean') &&
+    (v.owtBalance === undefined || typeof v.owtBalance === 'string') &&
     (v.tags === undefined || (Array.isArray(v.tags) && v.tags.every((t: any) => typeof t === 'string'))) &&
     (v.jobsCompleted === undefined || typeof v.jobsCompleted === 'number') &&
     (v.speedScore === undefined || typeof v.speedScore === 'number') &&
