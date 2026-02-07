@@ -918,7 +918,18 @@ export default function HomePage() {
       ctx.restore();
 
       // Nodes (buildings)
-      for (const a of agents) {
+      // Depth sort: draw agents from top to bottom (lower y first) for natural occlusion
+      const sortedAgents = [...agents].sort((a, b) => {
+        const msA = motionRef.current.get(a.id);
+        const msB = motionRef.current.get(b.id);
+        const nA = nodes.get(a.id);
+        const nB = nodes.get(b.id);
+        const yA = msA ? msA.y : nA?.y ?? 0;
+        const yB = msB ? msB.y : nB?.y ?? 0;
+        return yA - yB;
+      });
+
+      for (const a of sortedAgents) {
         const n = nodes.get(a.id);
         if (!n) continue;
         const { radius, glow, badge } = scoreToVisual(a.repScore);
