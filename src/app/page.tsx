@@ -84,7 +84,8 @@ function tierToDistrict(tier: Tier): District {
 }
 
 function scoreToVisual(repScore: number) {
-  const radius = Math.max(6, Math.min(34, Math.log(repScore + 1) * 6.2));
+  // Increase minimum size so agents stay legible against props/terrain
+  const radius = Math.max(9, Math.min(38, Math.log(repScore + 1) * 6.6));
   const glow = repScore >= 500 ? 'gold' : repScore >= 200 ? 'blue' : repScore >= 100 ? 'violet' : 'none';
   const badge = repScore >= 500 ? '👑' : repScore >= 100 ? '⭐' : null;
   return { radius, glow, badge } as const;
@@ -789,8 +790,9 @@ export default function HomePage() {
             for (let y = cy0; y < cy1; y++) {
               for (let x = cx0; x < cx1; x++) {
                 const k = tm.map[y * tm.cols + x] as TileKind;
-                const dx = (x - cx0) * sz;
-                const dy = (y - cy0) * sz;
+                // Round to reduce subpixel seams between tiles
+                const dx = Math.round((x - cx0) * sz);
+                const dy = Math.round((y - cy0) * sz);
 
                 if (k === 'water') {
                   const mask = neighborMask(tm.map, tm.cols, tm.rows, x, y, 'water');
@@ -851,7 +853,8 @@ export default function HomePage() {
         if (useCache) {
           ctx.imageSmoothingEnabled = false;
           const tl = worldToScreen(vp, useCache.x0 * TILE, useCache.y0 * TILE);
-          ctx.drawImage(useCache.canvas, tl.x, tl.y);
+          // Round blit to reduce visible grid seams
+          ctx.drawImage(useCache.canvas, Math.round(tl.x), Math.round(tl.y));
         }
       }
 
@@ -1088,7 +1091,27 @@ export default function HomePage() {
         // Pixel RPG sprite (fun layer)
         const tier = scoreToTier(a.repScore);
         const frame = Math.floor(t / 160 + (hashStringToU32(a.id) % 9)) % 8;
-        drawRpgSprite(ctx, p.x - 8 * Math.max(1, Math.floor(1.35 * clamp(vp.scale, 0.7, 2.0))), y0 - 18 * vp.scale, clamp(vp.scale, 0.7, 2.0), tier, frame);
+
+        const spriteScale = clamp(vp.scale, 0.8, 2.4);
+        const spriteMul = 1.85; // make agents noticeably larger
+
+        // Contrast plate behind sprite so it reads on busy terrain
+        ctx.save();
+        ctx.globalAlpha = 0.45;
+        ctx.fillStyle = 'rgba(0,0,0,0.9)';
+        ctx.beginPath();
+        ctx.ellipse(p.x, y0 - 6 * vp.scale, 10 * spriteScale * spriteMul, 7 * spriteScale * spriteMul, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        drawRpgSprite(
+          ctx,
+          p.x - 8 * Math.max(1, Math.floor(spriteMul * spriteScale)),
+          y0 - 22 * vp.scale,
+          spriteScale,
+          tier,
+          frame,
+        );
 
         // label fades with zoom
         const labelAlpha = clamp((vp.scale - 0.6) / 0.6, 0, 1);
