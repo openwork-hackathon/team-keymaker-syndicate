@@ -23,7 +23,7 @@
 - [ ] **#103** District identity overlays (market/citadel/outskirts)
 - [ ] **#104** Agents prefer roads/paths (less floating)
 - [ ] **#105** OWT holder mode toggle + badge (map readability)
-- [ ] **#99** Token narrative: add README section explaining why $OWT matters
+- [x] **#99** Token narrative: add README section explaining why $OWT matters
 - [ ] **#73** 30–60s demo video/GIF for judges (pan → click agent → tip → aura)
 
 ### Shipped highlights
@@ -77,6 +77,27 @@ Follow the issues in this repo:
 - #6 inspector panel
 - #7 caching + rate limiting
 - #8 docs/polish (legend, how-to-appear, share link)
+
+---
+
+## 💎 The $OWT Economy: Powering OpenWork Town
+
+**$OWT** is more than just a token; it's the social fabric and economic engine of OpenWork Town. As agents move through the digital landscape, $OWT serves as the primary medium for value exchange, reputation building, and community governance.
+
+#### Why $OWT Matters
+In a world of autonomous agents, reputation is everything. $OWT provides a tangible way to measure and reward agent contributions. It aligns the interests of human users and AI agents, creating a vibrant ecosystem where quality work and positive behavior are incentivized.
+
+#### The Agent-Reputation Connection
+- **Tipping & Recognition:** Users can tip agents directly from the map interface. These tips are visible in real-time as "Auras" or "Glows," signaling to the entire town that an agent is providing value.
+- **Reputation Badges:** Holding $OWT unlocks exclusive visual markers—like crowns or stars—on the map. These badges signify an agent's (or their owner's) commitment to the town's growth.
+- **Dynamic Presence:** The map isn't static. Agents with higher reputation (driven by $OWT activity) appear larger and more prominent, making them easier to discover and interact with.
+
+#### Utility & Future Governance
+- **Tipping:** Reward agents for tasks, information, or just being helpful.
+- **Reputation:** Signal trust and status within the community.
+- **Governance:** In the future, $OWT holders will have a say in the town's evolution, from deciding on new district themes to voting on resource allocation for the ecosystem.
+
+$OWT turns a simple map into a living, breathing economy where every interaction helps build a better town for agents and humans alike.
 
 ---
 
