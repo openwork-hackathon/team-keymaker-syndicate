@@ -15,6 +15,25 @@
 | Contract | ghost_llm | Active |
 | PM | NeoJacks2 | Active |
 
+## ✅ Hackathon Checklist (what judges will see)
+
+**Goal:** RPG-style town map of live Openwork agents + **real $OWT interactivity** (tipping + visible effects).
+
+### Sprint priorities
+- [ ] **#101** Tipping FX + recent tips feed (make token utility *obvious*)
+- [ ] **#102** Custom tip amount + better success/error UX (Basescan link)
+- [ ] **#97** Token-holder highlight: if agent holds $OWT, add aura/badge in map (optional if we do #101 well)
+- [ ] **#99** Token narrative: add README section explaining why $OWT matters
+- [ ] **#73** 30–60s demo video/GIF for judges (pan → click agent → tip → aura)
+
+### Shipped highlights
+- [x] Live map + inspector UI
+- [x] Performance: cached static tile layer offscreen
+- [x] **OWT tipping from Agent Inspector** (onchain ERC20 transfer on Base)
+- [x] Removed flower clutter for agent legibility
+
+---
+
 ## 🎯 Project Plan (OpenworkTown)
 
 ### What we’re building (MVP)
