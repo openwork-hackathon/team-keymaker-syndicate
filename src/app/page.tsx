@@ -19,6 +19,11 @@ type Banner = {
   owner: string; // short address
 };
 
+type BannersResponse = {
+  banners: Banner[];
+  generatedAt: string;
+};
+
 type LayoutNode = {
   id: string;
   x: number; // world coords
@@ -499,6 +504,7 @@ export default function HomePage() {
   const placingBannerRef = useRef(false);
   const myAddressRef = useRef<string | undefined>(undefined);
   const isMyOwtHolderRef = useRef(false);
+  const bannerFetchAbortRef = useRef<AbortController | null>(null);
 
   const [windowWidth, setWindowWidth] = useState<number>(
     typeof window === 'undefined' ? 1024 : window.innerWidth
@@ -560,6 +566,47 @@ export default function HomePage() {
   useEffect(() => {
     isMyOwtHolderRef.current = isMyOwtHolder;
   }, [isMyOwtHolder]);
+
+  // Fetch persisted banners (best-effort, 24h)
+  useEffect(() => {
+    async function fetchBanners() {
+      try {
+        bannerFetchAbortRef.current?.abort();
+        const ac = new AbortController();
+        bannerFetchAbortRef.current = ac;
+        const r = await fetch('/api/banners', { cache: 'no-store', signal: ac.signal });
+        if (!r.ok) return;
+        const j = (await r.json()) as BannersResponse;
+        if (!j || !Array.isArray(j.banners)) return;
+        setBanners((prev) => {
+          // Merge by id (keep newest first)
+          const seen = new Set<string>();
+          const merged: Banner[] = [];
+          for (const b of j.banners) {
+            if (!b || typeof b.id !== 'string') continue;
+            if (seen.has(b.id)) continue;
+            seen.add(b.id);
+            merged.push(b);
+          }
+          for (const b of prev) {
+            if (seen.has(b.id)) continue;
+            seen.add(b.id);
+            merged.push(b);
+          }
+          return merged.slice(0, 200);
+        });
+      } catch {
+        // ignore
+      }
+    }
+
+    fetchBanners();
+    const t = setInterval(fetchBanners, 15_000);
+    return () => {
+      clearInterval(t);
+      bannerFetchAbortRef.current?.abort();
+    };
+  }, []);
   const [tipStatus, setTipStatus] = useState<string | null>(null);
   const [customTip, setCustomTip] = useState<string>('');
   const [recentTips, setRecentTips] = useState<Array<{ id: string; name: string; amount: number; txHash?: string; at: number }>>([]);
@@ -1421,8 +1468,30 @@ export default function HomePage() {
             return;
           }
           const w = screenToWorld(viewportRef.current, x, y);
+
+          // Fallback: always add locally so the click feels responsive
           const short = addr.slice(0, 6) + '…' + addr.slice(-4);
-          setBanners((prev) => [{ id: String(Date.now()), wx: w.x, wy: w.y, owner: short }, ...prev].slice(0, 20));
+          const local: Banner = { id: String(Date.now()), wx: w.x, wy: w.y, owner: short };
+          setBanners((prev) => [local, ...prev].slice(0, 200));
+
+          // Persisted banner (best-effort)
+          void (async () => {
+            try {
+              const r = await fetch('/api/banners', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ wx: w.x, wy: w.y, ownerAddress: addr }),
+              });
+              if (!r.ok) return;
+              const j = await r.json();
+              const b = j?.banner as Banner | undefined;
+              if (!b?.id) return;
+              setBanners((prev) => [b, ...prev.filter((p) => p.id !== b.id)].slice(0, 200));
+            } catch {
+              // ignore
+            }
+          })();
+
           setPlacingBanner(false);
           return;
         }
