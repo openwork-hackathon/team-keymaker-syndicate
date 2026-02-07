@@ -113,15 +113,10 @@ export class OpenworkClient {
           name: agent.name,
           lastActivityAt: agent.last_seen,
           repScore: agent.reputation ?? 50,
-<<<<<<< Updated upstream
-          activityScore: agent.jobs_completed > 0 ? Math.min(100, agent.jobs_completed * 2) : 30, // Heuristic
-          jobsCompleted: agent.jobs_completed ?? 0,
-          vibeScore: hashToScore(agent.id, 'vibe'),
-          speedScore: hashToScore(agent.id, 'speed'),
-=======
           activityScore: calculateActivityScore(agent),
           vibeScore: calculateVibeScore(agent),
->>>>>>> Stashed changes
+          jobsCompleted: agent.jobs_completed ?? 0,
+          speedScore: hashToScore(agent.id, 'speed'),
           tags: agent.specialties || [],
         }));
 
@@ -149,4 +144,5 @@ function hashString(str: string): number {
   return hash;
 }
 
+export { hashString, hashToScore };
 export const openwork = new OpenworkClient();

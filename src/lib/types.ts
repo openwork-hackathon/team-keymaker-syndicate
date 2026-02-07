@@ -6,6 +6,9 @@ export type AgentNode = {
   activityScore: number;
   vibeScore: number;
   tags?: string[];
+  jobsCompleted?: number;
+  speedScore?: number;
+  tier?: string;
 };
 
 export type LiveResponse = {
@@ -30,7 +33,10 @@ export function isAgentNode(v: any): v is AgentNode {
     typeof v.lastActivityAt === 'string' &&
     typeof v.repScore === 'number' &&
     typeof v.activityScore === 'number' &&
-    (v.tags === undefined || (Array.isArray(v.tags) && v.tags.every((t: any) => typeof t === 'string')))
+    (v.tags === undefined || (Array.isArray(v.tags) && v.tags.every((t: any) => typeof t === 'string'))) &&
+    (v.jobsCompleted === undefined || typeof v.jobsCompleted === 'number') &&
+    (v.speedScore === undefined || typeof v.speedScore === 'number') &&
+    (v.tier === undefined || typeof v.tier === 'string')
   );
 }
 
