@@ -17,6 +17,7 @@ type Banner = {
   wx: number;
   wy: number;
   owner: string; // short address
+  ownerAddress?: string; // full address (when fetched from backend)
 };
 
 type BannersResponse = {
@@ -500,6 +501,7 @@ export default function HomePage() {
   const [highlightOwtHolders, setHighlightOwtHolders] = useState(true);
   const [placingBanner, setPlacingBanner] = useState(false);
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [selectedBannerId, setSelectedBannerId] = useState<string | null>(null);
   const bannersRef = useRef<Banner[]>([]);
   const placingBannerRef = useRef(false);
   const myAddressRef = useRef<string | undefined>(undefined);
@@ -619,6 +621,11 @@ export default function HomePage() {
   const hovered = useMemo(
     () => agents.find((a) => a.id === hoveredId) ?? null,
     [agents, hoveredId]
+  );
+
+  const selectedBanner = useMemo(
+    () => banners.find((b) => b.id === selectedBannerId) ?? null,
+    [banners, selectedBannerId]
   );
 
   // Poll live data
@@ -1471,7 +1478,7 @@ export default function HomePage() {
 
           // Fallback: always add locally so the click feels responsive
           const short = addr.slice(0, 6) + '…' + addr.slice(-4);
-          const local: Banner = { id: String(Date.now()), wx: w.x, wy: w.y, owner: short };
+          const local: Banner = { id: String(Date.now()), wx: w.x, wy: w.y, owner: short, ownerAddress: addr };
           setBanners((prev) => [local, ...prev].slice(0, 200));
 
           // Persisted banner (best-effort)
@@ -1496,8 +1503,27 @@ export default function HomePage() {
           return;
         }
 
+        // Click interaction: banners first, then agents
+        {
+          const w = screenToWorld(viewportRef.current, x, y);
+          const list = bannersRef.current;
+          let hit: { id: string; d2: number } | null = null;
+          for (const b of list) {
+            const dx = w.x - b.wx;
+            const dy = w.y - b.wy;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < 22 * 22 && (!hit || d2 < hit.d2)) hit = { id: b.id, d2 };
+          }
+          if (hit) {
+            setSelectedBannerId(hit.id);
+            setSelectedId(null);
+            return;
+          }
+        }
+
         const id = pickAgentAt(x, y);
         setSelectedId(id);
+        setSelectedBannerId(null);
       }
     }
 
@@ -2024,6 +2050,69 @@ export default function HomePage() {
       </button>
 
       {/* Recent tips (local-only) */}
+      {selectedBanner ? (
+        <div
+          style={{
+            position: 'fixed',
+            left: 16,
+            bottom: 'calc(16px + env(safe-area-inset-bottom) + 110px)',
+            zIndex: 4600,
+            padding: 10,
+            borderRadius: 12,
+            background: 'rgba(0,0,0,0.55)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            color: 'rgba(255,255,255,0.92)',
+            fontSize: 12,
+            maxWidth: 280,
+          }}
+        >
+          <div style={{ fontWeight: 900, marginBottom: 6, opacity: 0.9 }}>Banner</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ opacity: 0.9 }}>Owner</div>
+            <div style={{ fontWeight: 900 }}>{selectedBanner.owner}</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+            {selectedBanner.ownerAddress ? (
+              <a
+                href={`https://basescan.org/address/${selectedBanner.ownerAddress}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 10,
+                  background: 'rgba(255,255,255,0.10)',
+                  border: '1px solid rgba(255,255,255,0.14)',
+                  color: 'rgba(160,210,255,0.95)',
+                  textDecoration: 'none',
+                  fontWeight: 800,
+                  fontSize: 12,
+                }}
+              >
+                View on Basescan ↗
+              </a>
+            ) : null}
+            <button
+              onClick={() => setSelectedBannerId(null)}
+              style={{
+                padding: '6px 10px',
+                borderRadius: 10,
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                color: 'rgba(255,255,255,0.85)',
+                cursor: 'pointer',
+                fontWeight: 800,
+                fontSize: 12,
+              }}
+            >
+              Close
+            </button>
+          </div>
+          <div style={{ marginTop: 6, opacity: 0.75, fontSize: 11 }}>Tip them by selecting an agent, or click another banner.</div>
+        </div>
+      ) : null}
+
       {recentTips.length ? (
         <div
           style={{

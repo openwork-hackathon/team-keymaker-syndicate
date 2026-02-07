@@ -20,6 +20,7 @@ const WORLD_W = 2400;
 const WORLD_H = 1600;
 const TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_BANNERS = 200;
+const MAX_PER_OWNER = 3;
 
 // In-memory store (best-effort)
 const store: {
@@ -93,7 +94,7 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
-    banners: store.banners.map(({ id, wx, wy, ownerShort }) => ({ id, wx, wy, owner: ownerShort })),
+    banners: store.banners.map(({ id, wx, wy, ownerShort, ownerAddress }) => ({ id, wx, wy, owner: ownerShort, ownerAddress })),
     generatedAt: new Date(now).toISOString(),
   });
 }
@@ -129,6 +130,18 @@ export async function POST(req: NextRequest) {
   const ok = await isOwtHolder(ownerAddress);
   if (!ok) {
     return NextResponse.json({ error: 'Requires holding OWT' }, { status: 403 });
+  }
+
+  // Restrict banners per owner (anti-spam)
+  const ownerKey = ownerAddress.toLowerCase();
+  const activeOwned = store.banners.filter((b) => b.ownerAddress.toLowerCase() === ownerKey);
+  if (activeOwned.length >= MAX_PER_OWNER) {
+    // Replace the oldest banner from this owner (so they can move it), rather than hard fail.
+    activeOwned.sort((a, b) => a.createdAt - b.createdAt);
+    const oldest = activeOwned[0];
+    if (oldest) {
+      store.banners = store.banners.filter((b) => b.id !== oldest.id);
+    }
   }
 
   const cx = clamp(wx, 40, WORLD_W - 40);
