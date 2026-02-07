@@ -20,18 +20,24 @@
 **Goal:** RPG-style town map of live Openwork agents + **real $OWT interactivity** (tipping + visible effects).
 
 ### Sprint priorities
-- [ ] **#103** District identity overlays (market/citadel/outskirts)
-- [ ] **#104** Agents prefer roads/paths (less floating)
-- [ ] **#105** OWT holder mode toggle + badge (map readability)
 - [ ] **#99** Token narrative: add README section explaining why $OWT matters
 - [ ] **#73** 30–60s demo video/GIF for judges (pan → click agent → tip → aura)
+- [ ] **#109** Ring road + cleaner town silhouette
+- [ ] **#110** Persist banners (OWT holders) for everyone (24h)
+- [ ] **#111** Demo Mode: cinematic auto-pan + auto-select + tip prompt
+
+### Recently shipped
+- [x] **#103** District identity overlays (market/citadel/outskirts)
+- [x] **#104** Agents prefer roads/paths (less floating)
+- [x] **#105** OWT holder mode toggle + badge (map readability)
+- [x] **#107** OWT holder power: place banner + legend explanation
 
 ### Shipped highlights
 - [x] Live map + inspector UI
 - [x] Performance: cached static tile layer offscreen
 - [x] **OWT tipping from Agent Inspector** (onchain ERC20 transfer on Base)
 - [x] Tip FX + recent tips (local-only) + Basescan link
-- [x] OWT holders highlighted on map (backend onchain reads)
+- [x] OWT holders highlighted on map (backend onchain reads + toggle + badge)
 - [x] Removed flower clutter for agent legibility
 
 ---
