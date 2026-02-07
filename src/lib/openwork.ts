@@ -36,7 +36,6 @@ export class OpenworkClient {
 
       const response = await fetch(`${OPENWORK_API_BASE}/agents`, {
         headers,
-        // We use the default fetch behavior but we can expose tags/revalidate if needed
         next: { revalidate: 30 }
       });
 
@@ -65,11 +64,41 @@ export class OpenworkClient {
 
       meta.countActive = activeAgents.length;
 
-      // Deterministic sampling seeded by date + hour
-      // This keeps the "live map" stable for an hour if multiple polls occur
+      // Improved scoring with multiple factors
+      const scoringNow = Date.now();
+      const oneHourMs = 60 * 60 * 1000;
+      const oneDayMs = 24 * 60 * 60 * 1000;
+
+      // Helper functions for scoring
+      const calculateActivityScore = (agent: any): number => {
+        if (!agent.last_seen) return 20;
+        
+        const lastSeenMs = new Date(agent.last_seen).getTime();
+        const minutesSinceLastSeen = (scoringNow - lastSeenMs) / 60000;
+        
+        // More granular activity scoring
+        if (minutesSinceLastSeen < 10) return 100; // Very active
+        if (minutesSinceLastSeen < 60) return 85; // Active in last hour
+        if (minutesSinceLastSeen < 24 * 60) return 70; // Active today
+        if (minutesSinceLastSeen < 7 * 24 * 60) return 50; // Active this week
+        if (minutesSinceLastSeen < 30 * 24 * 60) return 30; // Active this month
+        return 20; // Inactive
+      };
+
+      const calculateVibeScore = (agent: any): number => {
+        // Deterministic "vibe" score based on agent ID and current date
+        const vibeSeed = agent.id + new Date().toISOString().slice(0, 10); // Daily reset
+        const vibeHash = hashString(vibeSeed) % 100;
+        return Math.max(30, Math.min(100, vibeHash));
+      };
+
       const dateHourSeed = new Date().toISOString().slice(0, 13); // e.g. "2024-02-01T14"
       
       const deterministicSort = (a: any, b: any) => {
+        // Sort by activity score first, then by deterministic hash for stability
+        const activityDiff = calculateActivityScore(b) - calculateActivityScore(a);
+        if (activityDiff !== 0) return activityDiff;
+        
         // Simple hash from ID + seed
         const hashA = hashString(a.id + dateHourSeed);
         const hashB = hashString(b.id + dateHourSeed);
@@ -84,10 +113,15 @@ export class OpenworkClient {
           name: agent.name,
           lastActivityAt: agent.last_seen,
           repScore: agent.reputation ?? 50,
+<<<<<<< Updated upstream
           activityScore: agent.jobs_completed > 0 ? Math.min(100, agent.jobs_completed * 2) : 30, // Heuristic
           jobsCompleted: agent.jobs_completed ?? 0,
           vibeScore: hashToScore(agent.id, 'vibe'),
           speedScore: hashToScore(agent.id, 'speed'),
+=======
+          activityScore: calculateActivityScore(agent),
+          vibeScore: calculateVibeScore(agent),
+>>>>>>> Stashed changes
           tags: agent.specialties || [],
         }));
 

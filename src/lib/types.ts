@@ -4,6 +4,7 @@ export type AgentNode = {
   lastActivityAt: string; // ISO
   repScore: number;
   activityScore: number;
+  vibeScore: number;
   tags?: string[];
 };
 
