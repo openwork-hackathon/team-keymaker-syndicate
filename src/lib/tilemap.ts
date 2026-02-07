@@ -354,8 +354,8 @@ export function makeWorldTilemap(worldW: number, worldH: number, tilePx: number)
     }
   }
 
-  // Flowers: mostly outskirts + a touch of midtown
-  for (let i = 0; i < 30; i++) {
+  // Flowers: keep sparse so agents remain legible
+  for (let i = 0; i < 12; i++) {
     const x = 160 + rand() * 820;
     const y = 900 + rand() * 620;
     const tx = Math.floor(x / tilePx);
@@ -365,7 +365,7 @@ export function makeWorldTilemap(worldW: number, worldH: number, tilePx: number)
       if (tile === 'grass') props.push({ kind: 'flower', x, y });
     }
   }
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 3; i++) {
     const x = DISTRICTS.midtown.wx - 240 + rand() * 480;
     const y = DISTRICTS.midtown.wy - 160 + rand() * 320;
     const tx = Math.floor(x / tilePx);
