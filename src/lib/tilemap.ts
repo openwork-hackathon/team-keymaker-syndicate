@@ -284,19 +284,38 @@ export function makeWorldTilemap(worldW: number, worldH: number, tilePx: number)
 
   // Paths connecting landmarks
   // Keep the road network readable and avoid accidental suggestive silhouettes.
-  // Main route: Docks → Market → Town Hall → Mint
-  line(docks.x, docks.y, market.x, market.y, 'path');
-  line(market.x, market.y, hall.x, hall.y, 'path');
-  line(hall.x, hall.y, mint.x, mint.y, 'path');
+  // Ring road loop around the town core + short spurs to landmarks.
+
+  // Ring road (clockwise)
+  const ring = [
+    toCell(760, 980),   // west gate
+    toCell(960, 640),   // north-west
+    toCell(1360, 520),  // north gate
+    toCell(1740, 720),  // east gate
+    toCell(1660, 1140), // south-east
+    toCell(1140, 1300), // south gate
+    toCell(740, 1220),  // south-west
+  ];
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i]!;
+    const b = ring[(i + 1) % ring.length]!;
+    line(a.x, a.y, b.x, b.y, 'path');
+  }
+
+  // Spurs (landmarks)
+  line(docks.x, docks.y, ring[6]!.x, ring[6]!.y, 'path');
+  line(market.x, market.y, ring[0]!.x, ring[0]!.y, 'path');
+  line(hall.x, hall.y, ring[2]!.x, ring[2]!.y, 'path');
+  line(mint.x, mint.y, ring[4]!.x, ring[4]!.y, 'path');
 
   // ── District biome palettes (Issue #62)
   // We only have 3 tile kinds, so we "palette" districts by varying how much
   // of each area is paved (path) vs wild (grass) and by changing prop density.
   // Keep plazas smaller so the map reads like streets, not giant blobs.
-  fillCircle(DISTRICTS.citadel.wx, DISTRICTS.citadel.wy, 6, 'path', 0.18);   // Citadel plaza
-  fillCircle(DISTRICTS.uptown.wx, DISTRICTS.uptown.wy, 4, 'path', 0.28);     // Uptown streets
-  fillCircle(DISTRICTS.midtown.wx, DISTRICTS.midtown.wy, 4, 'path', 0.32);   // Midtown market square
-  fillCircle(1520, 1020, 3, 'path', 0.22);                                   // Mint forecourt
+  fillCircle(DISTRICTS.citadel.wx, DISTRICTS.citadel.wy, 5, 'path', 0.20);   // Citadel plaza
+  fillCircle(DISTRICTS.uptown.wx, DISTRICTS.uptown.wy, 4, 'path', 0.30);     // Uptown streets
+  fillCircle(DISTRICTS.midtown.wx, DISTRICTS.midtown.wy, 4, 'path', 0.34);   // Midtown market square
+  fillCircle(1520, 1020, 3, 'path', 0.24);                                   // Mint forecourt
   // Outskirts stays grassy; we’ll emphasize with trees props below
 
   // Add small grass “islands” inside the Citadel so it doesn’t look like one blob
