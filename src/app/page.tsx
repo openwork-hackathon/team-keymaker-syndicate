@@ -798,11 +798,13 @@ export default function HomePage() {
                   const mask = neighborMask(tm.map, tm.cols, tm.rows, x, y, 'water');
                   const pos = waterAutotilePos(mask);
                   const { sx, sy, sw, sh } = atlasSrcRect(pos);
-                  cctx.drawImage(img!, sx, sy, sw, sh, dx, dy, sz, sz);
+                  // Crop 1px to reduce heavy tile outlines
+                  cctx.drawImage(img!, sx + 1, sy + 1, sw - 2, sh - 2, dx, dy, sz + 1, sz + 1);
                 } else if (k === 'path') {
                   const info = pathEdgeInfo(tm.map, tm.cols, tm.rows, x, y);
                   const { sx, sy, sw, sh } = atlasSrcRect(info.pos);
-                  cctx.drawImage(img!, sx, sy, sw, sh, dx, dy, sz, sz);
+                  // Crop 1px to reduce heavy tile outlines
+                  cctx.drawImage(img!, sx + 1, sy + 1, sw - 2, sh - 2, dx, dy, sz + 1, sz + 1);
 
                   const inset = Math.max(2, sz * 0.12);
                   cctx.fillStyle = 'rgba(90,140,40,0.35)';
@@ -822,7 +824,8 @@ export default function HomePage() {
                       ? alts[Math.abs(h >> 4) % alts.length]
                       : variant.base;
                   const { sx, sy, sw, sh } = atlasSrcRect(pos);
-                  cctx.drawImage(img!, sx, sy, sw, sh, dx, dy, sz, sz);
+                  // Crop 1px to reduce heavy tile outlines
+                  cctx.drawImage(img!, sx + 1, sy + 1, sw - 2, sh - 2, dx, dy, sz + 1, sz + 1);
                 }
               }
             }
@@ -836,15 +839,17 @@ export default function HomePage() {
                 const prop = tm.props[i];
 
                 // Zoom-based prop culling
-                const isBusy = prop.kind === 'flower' || prop.kind === 'barrel';
-                if (isBusy && z < 1.05) continue;
+                const isFlower = prop.kind === 'flower';
+                const isBusy = prop.kind === 'barrel';
+                if (isBusy && z < 1.2) continue;
+                if (isFlower && z < 1.6) continue;
 
                 const px = (prop.x - cx0 * TILE) * z;
                 const py = (prop.y - cy0 * TILE) * z;
 
                 // Fade props slightly so agents remain the primary focus
                 cctx.save();
-                cctx.globalAlpha = isBusy ? 0.7 : z < 0.9 ? 0.55 : 0.8;
+                cctx.globalAlpha = isFlower ? 0.55 : isBusy ? 0.7 : z < 0.9 ? 0.55 : 0.8;
                 drawProp(cctx, prop, px - 8 * z, py - 8 * z, z, i);
                 cctx.restore();
               }
@@ -1105,22 +1110,23 @@ export default function HomePage() {
         const tier = scoreToTier(a.repScore);
         const frame = Math.floor(t / 160 + (hashStringToU32(a.id) % 9)) % 8;
 
-        const spriteScale = clamp(vp.scale, 0.8, 2.4);
-        const spriteMul = 1.85; // make agents noticeably larger
+        const spriteScale = clamp(vp.scale, 0.85, 2.4);
+        const spriteMul = 1.7; // bigger, but keep grounded
 
-        // Contrast plate behind sprite so it reads on busy terrain
+        // Stronger ground shadow so it feels "on the ground" not floating
         ctx.save();
-        ctx.globalAlpha = 0.45;
-        ctx.fillStyle = 'rgba(0,0,0,0.9)';
+        ctx.globalAlpha = 0.28;
+        ctx.fillStyle = 'rgba(0,0,0,1)';
         ctx.beginPath();
-        ctx.ellipse(p.x, y0 - 6 * vp.scale, 10 * spriteScale * spriteMul, 7 * spriteScale * spriteMul, 0, 0, Math.PI * 2);
+        ctx.ellipse(p.x, p.y + 12 * vp.scale, 9 * spriteScale, 3.2 * spriteScale, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
 
+        // Place sprite relative to ground point p.y (feet near the shadow)
         drawRpgSprite(
           ctx,
           p.x - 8 * Math.max(1, Math.floor(spriteMul * spriteScale)),
-          y0 - 22 * vp.scale,
+          p.y - 10 * spriteScale,
           spriteScale,
           tier,
           frame,
@@ -1437,6 +1443,14 @@ export default function HomePage() {
                 <span style={{ opacity: 0.6 }}>Last Activity</span>
                 <span style={{ fontWeight: 500 }}>{new Date(selected.lastActivityAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
               </div>
+              {selected.walletAddress ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                  <span style={{ opacity: 0.6 }}>Wallet</span>
+                  <span style={{ fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>
+                    {selected.walletAddress.slice(0, 6)}…{selected.walletAddress.slice(-4)}
+                  </span>
+                </div>
+              ) : null}
             </div>
 
             {selected.tags && selected.tags.length > 0 && (
@@ -1449,29 +1463,63 @@ export default function HomePage() {
               </div>
             )}
 
-            <a
-              href={`https://www.openwork.bot/agents/${selected.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                marginTop: 8,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                padding: '10px',
-                background: '#59B0FF',
-                borderRadius: '10px',
-                color: '#070a14',
-                fontSize: 13,
-                fontWeight: 700,
-                textDecoration: 'none',
-                transition: 'all 0.2s ease',
-              }}
-            >
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              <a
+                href={`https://www.openwork.bot/agents/${selected.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  flex: 1,
+                  minWidth: 140,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '10px',
+                  background: '#59B0FF',
+                  borderRadius: '10px',
+                  color: '#070a14',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                  transition: 'all 0.2s ease',
+                }}
+              >
               View Full Profile
               <span style={{ fontSize: 14 }}>↗</span>
-            </a>
+              </a>
+
+              {selected.walletAddress ? (
+                <button
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(selected.walletAddress!);
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    minWidth: 140,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '10px',
+                    background: 'rgba(255,255,255,0.10)',
+                    borderRadius: '10px',
+                    color: 'rgba(255,255,255,0.92)',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    border: '1px solid rgba(255,255,255,0.14)',
+                    cursor: 'pointer',
+                  }}
+                  title="Copy wallet address"
+                >
+                  Copy wallet
+                </button>
+              ) : null}
+            </div>
           </div>
         )}
       </div>

@@ -131,6 +131,7 @@ export class OpenworkClient {
               jobsCompleted: agent.jobs_completed ?? 0,
               speedScore: agent.speed_score ?? undefined,
               tier: agent.tier ?? undefined,
+              walletAddress: agent.wallet_address ?? undefined,
             }));
 
           return { agents: sampledAgents, meta };

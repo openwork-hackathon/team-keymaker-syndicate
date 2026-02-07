@@ -354,8 +354,8 @@ export function makeWorldTilemap(worldW: number, worldH: number, tilePx: number)
     }
   }
 
-  // Flowers: keep VERY sparse so agents remain legible (RPG vibe without noise)
-  for (let i = 0; i < 6; i++) {
+  // Flowers: keep extremely sparse so agents remain legible (RPG vibe without noise)
+  for (let i = 0; i < 3; i++) {
     const x = 160 + rand() * 820;
     const y = 900 + rand() * 620;
     const tx = Math.floor(x / tilePx);
