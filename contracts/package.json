@@ -1,0 +1,40 @@
+{
+  "name": "openworktown-contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts for OpenworkTown agent registry and reputation system",
+  "main": "hardhat.config.js",
+  "scripts": {
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat test",
+    "deploy": "npx hardhat run scripts/deploy.js",
+    "deploy:mainnet": "npx hardhat run scripts/deploy.js --network base",
+    "deploy:sepolia": "npx hardhat run scripts/deploy.js --network baseSepolia",
+    "verify": "npx hardhat verify",
+    "console": "npx hardhat console",
+    "clean": "rm -rf artifacts cache",
+    "lint": "npx hardhat format",
+    "coverage": "npx hardhat coverage"
+  },
+  "keywords": [
+    "solidity",
+    "smart-contracts",
+    "openzeppelin",
+    "ethereum",
+    "base",
+    "nft",
+    "reputation-system"
+  ],
+  "author": "OpenworkHackathon Team",
+  "license": "MIT",
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.6",
+    "fp-ts": "^2.16.11"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^2.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openwork-hackathon/team-keymaker-syndicate.git"
+  }
+}
