@@ -828,12 +828,25 @@ export default function HomePage() {
             }
 
             // Static props on top of the tile layer
+            // IMPORTANT: keep the map readable. Only draw "busy" props (flowers/barrels)
+            // when zoomed in; at zoomed-out levels they create noise and hide agents.
             if (tm.props) {
+              const z = vp.scale;
               for (let i = 0; i < tm.props.length; i++) {
                 const prop = tm.props[i];
-                const px = (prop.x - cx0 * TILE) * vp.scale;
-                const py = (prop.y - cy0 * TILE) * vp.scale;
-                drawProp(cctx, prop, px - 8 * vp.scale, py - 8 * vp.scale, vp.scale, i);
+
+                // Zoom-based prop culling
+                const isBusy = prop.kind === 'flower' || prop.kind === 'barrel';
+                if (isBusy && z < 1.05) continue;
+
+                const px = (prop.x - cx0 * TILE) * z;
+                const py = (prop.y - cy0 * TILE) * z;
+
+                // Fade props slightly so agents remain the primary focus
+                cctx.save();
+                cctx.globalAlpha = isBusy ? 0.7 : z < 0.9 ? 0.55 : 0.8;
+                drawProp(cctx, prop, px - 8 * z, py - 8 * z, z, i);
+                cctx.restore();
               }
             }
           }
