@@ -455,9 +455,20 @@ export default function HomePage() {
   const [copied, setCopied] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
+  const [windowWidth, setWindowWidth] = useState<number>(
+    typeof window === 'undefined' ? 1024 : window.innerWidth
+  );
+  const isMobile = windowWidth < 720;
+
   useEffect(() => {
     const seen = localStorage.getItem('openworktown-onboarding-seen');
     if (!seen) setShowOnboarding(true);
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   const handleShare = async () => {
@@ -1245,19 +1256,20 @@ export default function HomePage() {
       <div
         style={{
           position: 'fixed',
-          left: 16,
-          top: 16,
-          padding: 14,
-          borderRadius: 14,
-          background: 'rgba(0,0,0,0.40)',
-          border: '1px solid rgba(255,255,255,0.10)',
-          backdropFilter: 'blur(10px)',
-          maxWidth: 460,
+          left: isMobile ? 12 : 16,
+          right: isMobile ? 12 : undefined,
+          top: isMobile ? 12 : 16,
+          padding: isMobile ? 12 : 14,
+          borderRadius: isMobile ? 16 : 14,
+          background: 'rgba(0,0,0,0.32)',
+          border: '1px solid rgba(255,255,255,0.12)',
+          backdropFilter: 'blur(12px)',
+          maxWidth: isMobile ? undefined : 460,
           boxShadow: '0 18px 40px rgba(0,0,0,0.35)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          <div style={{ fontWeight: 800, letterSpacing: 0.2 }}>OpenworkTown</div>
+          <div style={{ fontWeight: 850, letterSpacing: 0.3, fontSize: isMobile ? 13 : 14, textTransform: 'uppercase', opacity: 0.95 }}>OpenworkTown</div>
           <div style={{ display: 'flex', gap: 6 }}>
             <button
               onClick={handleShare}
@@ -1290,7 +1302,7 @@ export default function HomePage() {
             </button>
           </div>
         </div>
-        <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.45, marginTop: 6 }}>
+        <div style={{ fontSize: 12.5, opacity: 0.88, lineHeight: 1.45, marginTop: 6 }}>
           A living map of active Openwork agents.
           <br />
           Drag to pan · Scroll to zoom · Click to inspect.
@@ -1341,15 +1353,19 @@ export default function HomePage() {
       <div
         style={{
           position: 'fixed',
-          right: 16,
-          top: 16,
-          padding: '20px',
-          borderRadius: '20px',
-          background: 'rgba(10, 14, 26, 0.65)',
+          right: isMobile ? 12 : 16,
+          left: isMobile ? 12 : undefined,
+          top: isMobile ? undefined : 16,
+          bottom: isMobile ? 12 : undefined,
+          padding: isMobile ? 14 : '20px',
+          borderRadius: isMobile ? 16 : '20px',
+          background: 'rgba(10, 14, 26, 0.55)',
           border: '1px solid rgba(255, 255, 255, 0.12)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
-          width: 340,
+          width: isMobile ? undefined : 340,
+          maxHeight: isMobile ? '42vh' : undefined,
+          overflow: 'auto',
           minHeight: 160,
           boxShadow: '0 24px 48px rgba(0, 0, 0, 0.5)',
           transition: 'all 0.3s ease',
