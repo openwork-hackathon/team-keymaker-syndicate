@@ -347,7 +347,7 @@ function drawProp(ctx: CanvasRenderingContext2D, prop: Prop, screenX: number, sc
   }
 }
 
-function computeLayout(agents: AgentNode[], prev?: Map<string, LayoutNode>): Map<string, LayoutNode> {
+function computeLayout(agents: AgentNode[], prev?: Map<string, LayoutNode>, tm?: WorldTilemap | null): Map<string, LayoutNode> {
   // World bounds; large enough to pan around.
   const WORLD_W = 2400;
   const WORLD_H = 1600;
@@ -383,6 +383,32 @@ function computeLayout(agents: AgentNode[], prev?: Map<string, LayoutNode>): Map
 
     x = clamp(x, pad, WORLD_W - pad);
     y = clamp(y, pad, WORLD_H - pad);
+
+    // Bias new agents to land on/near roads so sprites feel grounded in a town.
+    if (tm) {
+      const tx = Math.floor(x / tm.tilePx);
+      const ty = Math.floor(y / tm.tilePx);
+      const maxR = 7;
+      let best: { x: number; y: number; d2: number } | null = null;
+      for (let oy = -maxR; oy <= maxR; oy++) {
+        for (let ox = -maxR; ox <= maxR; ox++) {
+          const cx = tx + ox;
+          const cy = ty + oy;
+          if (cx < 0 || cy < 0 || cx >= tm.cols || cy >= tm.rows) continue;
+          const k = tm.map[cy * tm.cols + cx];
+          if (k !== 'path') continue;
+          const dx = ox;
+          const dy = oy;
+          const d2 = dx * dx + dy * dy;
+          if (!best || d2 < best.d2) best = { x: cx, y: cy, d2 };
+        }
+      }
+      if (best) {
+        const jitter = (rand() - 0.5) * (tm.tilePx * 0.45);
+        x = best.x * tm.tilePx + tm.tilePx / 2 + jitter;
+        y = best.y * tm.tilePx + tm.tilePx / 2 + jitter;
+      }
+    }
 
     next.set(a.id, { id: a.id, x, y, r: radius, tier });
   }
@@ -459,6 +485,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [highlightOwtHolders, setHighlightOwtHolders] = useState(true);
 
   const [windowWidth, setWindowWidth] = useState<number>(
     typeof window === 'undefined' ? 1024 : window.innerWidth
@@ -545,7 +572,7 @@ export default function HomePage() {
   // Recompute layout when agent set changes
   useEffect(() => {
     agentsRef.current = agents;
-    layoutRef.current = computeLayout(agents, layoutRef.current);
+    layoutRef.current = computeLayout(agents, layoutRef.current, tileRef.current);
 
 
     // Initialize motion state for new agents
@@ -908,7 +935,7 @@ export default function HomePage() {
       ctx.fillStyle = vg;
       ctx.fillRect(0, 0, W, H);
 
-      // District haze blobs + labels
+      // District identity overlays + labels
       const districts: District[] = [
         tierToDistrict('legendary'),
         tierToDistrict('notable'),
@@ -916,14 +943,39 @@ export default function HomePage() {
         tierToDistrict('new'),
       ];
 
+      // Landmark-style identity: a warm "Market" glow zone
+      const marketCenter = { x: 860, y: 980 };
+
       ctx.save();
+
+      // Warm market glow (gives the town a focal point)
+      {
+        const p = worldToScreen(vp, marketCenter.x, marketCenter.y);
+        const rad = 420 * vp.scale;
+        const a = vp.scale > 0.8 ? 0.10 : 0.07;
+        const dg = ctx.createRadialGradient(p.x, p.y, 30, p.x, p.y, rad);
+        dg.addColorStop(0, `rgba(255, 170, 80, ${a})`);
+        dg.addColorStop(1, 'rgba(255, 170, 80, 0)');
+        ctx.fillStyle = dg;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       for (const d of districts) {
         const p = worldToScreen(vp, d.center.x, d.center.y);
-        const alpha = vp.scale > 0.7 ? 0.12 : 0.08;
-        const rad = (d.tier === 'legendary' ? 340 : d.tier === 'notable' ? 420 : d.tier === 'rising' ? 480 : 520) * vp.scale;
+
+        // Identity tint per district (subtle)
+        const alpha = vp.scale > 0.7 ? 0.11 : 0.075;
+        const rad = (d.tier === 'legendary' ? 360 : d.tier === 'notable' ? 440 : d.tier === 'rising' ? 500 : 560) * vp.scale;
+
+        let tint = d.color;
+        if (d.tier === 'legendary') tint = { r: 170, g: 200, b: 255 }; // cooler citadel feel
+        if (d.tier === 'new') tint = { r: 120, g: 255, b: 170 }; // outskirts green haze
+
         const dg = ctx.createRadialGradient(p.x, p.y, 20, p.x, p.y, rad);
-        dg.addColorStop(0, rgba(d.color, alpha));
-        dg.addColorStop(1, rgba(d.color, 0));
+        dg.addColorStop(0, rgba(tint, alpha));
+        dg.addColorStop(1, rgba(tint, 0));
         ctx.fillStyle = dg;
         ctx.beginPath();
         ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
@@ -1066,6 +1118,9 @@ export default function HomePage() {
         const isSelected = a.id === selectedId;
         const isHovered = a.id === hoveredId;
 
+        const dimmed = highlightOwtHolders && !a.hasOwt;
+        if (dimmed) ctx.globalAlpha = 0.55;
+
         const pulse = 0.65 + 0.35 * Math.sin(t / 800 + (hashStringToU32(a.id) % 1000) / 100);
 
         // Building dimensions (screen-space)
@@ -1178,8 +1233,32 @@ export default function HomePage() {
           ctx.restore();
         }
 
+        // OWT coin badge (readability)
+        if (a.hasOwt && vp.scale > 0.9) {
+          ctx.save();
+          ctx.globalAlpha = 0.95;
+          const bx = p.x + base * 0.38;
+          const by = p.y - base * 0.55;
+          ctx.beginPath();
+          ctx.arc(bx, by, 7 * vp.scale, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(245, 197, 66, 0.95)';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(10,14,26,0.95)';
+          ctx.font = `${Math.max(10, 11 * vp.scale)}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('$', bx, by + 0.5);
+          ctx.restore();
+        }
+
         // hit-test radius in world-space
         n.r = radius;
+
+        // restore alpha if we dimmed non-holders
+        if (dimmed) ctx.globalAlpha = 1;
       }
 
       raf = requestAnimationFrame(draw);
@@ -1421,6 +1500,21 @@ export default function HomePage() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span>⭐ Rising Badge</span>
+            </div>
+
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+              <div style={{ fontWeight: 800, marginBottom: 6 }}>Token View</div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={highlightOwtHolders}
+                  onChange={(e) => setHighlightOwtHolders(e.target.checked)}
+                />
+                <span>Highlight OWT holders</span>
+              </label>
+              <div style={{ marginTop: 6, opacity: 0.8, fontSize: 11 }}>
+                Holders get a teal aura + $ badge; non-holders dim when enabled.
+              </div>
             </div>
           </div>
         </div>
