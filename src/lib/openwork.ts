@@ -126,7 +126,11 @@ export class OpenworkClient {
               lastActivityAt: agent.last_seen,
               repScore: agent.reputation ?? 50,
               activityScore: agent.jobs_completed > 0 ? 70 : 30, // Heuristic
+              vibeScore: agent.reputation ?? 50,
               tags: agent.specialties || [],
+              jobsCompleted: agent.jobs_completed ?? 0,
+              speedScore: agent.speed_score ?? undefined,
+              tier: agent.tier ?? undefined,
             }));
 
           return { agents: sampledAgents, meta };

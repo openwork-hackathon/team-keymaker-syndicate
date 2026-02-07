@@ -68,6 +68,8 @@ export default function AgentInspectorPanel({ agent, onExternalLink }: AgentInsp
     }
   };
 
+  const tier = agent.tier ?? 'new';
+
   return (
     <div style={{ padding: '15px', height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
@@ -98,7 +100,7 @@ export default function AgentInspectorPanel({ agent, onExternalLink }: AgentInsp
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
           <div style={{
             padding: '4px 12px',
-            background: getTierColor(agent.tier),
+            background: getTierColor(tier),
             color: '#0a0a0a',
             borderRadius: 20,
             fontSize: 12,
@@ -107,7 +109,7 @@ export default function AgentInspectorPanel({ agent, onExternalLink }: AgentInsp
             alignItems: 'center',
             gap: 6
           }}>
-            {getBadgeIcon(agent.tier)} {getDistrictInfo(agent.tier).name}
+            {getBadgeIcon(tier)} {getDistrictInfo(tier).name}
           </div>
           <div style={{
             padding: '4px 10px',

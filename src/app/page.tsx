@@ -435,9 +435,22 @@ export default function HomePage() {
   const agentsRef = useRef<AgentNode[]>([]);
   const motionRef = useRef<Map<string, MotionState>>(new Map());
   const lastFrameAtRef = useRef<number>(0);
-    const tileRef = useRef<WorldTilemap | null>(null);
+
+  const tileRef = useRef<WorldTilemap | null>(null);
   const tileImgRef = useRef<HTMLImageElement | null>(null);
   const tileImgReadyRef = useRef(false);
+
+  const tileCacheRef = useRef<{
+    canvas: HTMLCanvasElement;
+    // Cached region in tile coordinates [x0,x1) × [y0,y1)
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number;
+    scale: number;
+    tileSize: number;
+  } | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -701,74 +714,139 @@ export default function HomePage() {
         tileRef.current = makeWorldTilemap(WORLD_W, WORLD_H, TILE);
       }
 
-      ctx.clearRect(0, 0, W, H);
+      // ---- Tile layer (cached) ----
+      // Cache the static tile layer to an offscreen canvas for the current zoom.
+      // Rebuild when zoom changes or when the viewport moves outside the cached tile region.
 
       const tm = tileRef.current;
       const img = tileImgRef.current;
       const imgReady = tileImgReadyRef.current && img;
 
-      // visible tile bounds
+      // Visible tile bounds (with a margin so panning doesn't constantly rebuild)
       const start = screenToWorld(vp, -50, -50);
-      const end = screenToWorld(vp, W + 50, H + 50);
+      const endPt = screenToWorld(vp, W + 50, H + 50);
       const x0 = clamp(Math.floor(start.x / TILE), 0, tm.cols - 1);
       const y0 = clamp(Math.floor(start.y / TILE), 0, tm.rows - 1);
-      const x1 = clamp(Math.floor(end.x / TILE) + 1, 0, tm.cols);
-      const y1 = clamp(Math.floor(end.y / TILE) + 1, 0, tm.rows);
+      const x1 = clamp(Math.floor(endPt.x / TILE) + 1, 0, tm.cols);
+      const y1 = clamp(Math.floor(endPt.y / TILE) + 1, 0, tm.rows);
 
-      for (let y = y0; y < y1; y++) {
-        for (let x = x0; x < x1; x++) {
-          const k = tm.map[y * tm.cols + x] as TileKind;
-          const sp = worldToScreen(vp, x * TILE, y * TILE);
-          const sz = TILE * vp.scale;
+      ctx.clearRect(0, 0, W, H);
 
-          if (!imgReady) {
-            // fallback until image loads
+      if (!imgReady) {
+        // Fallback until atlas loads: draw only visible tiles as solid fills.
+        for (let y = y0; y < y1; y++) {
+          for (let x = x0; x < x1; x++) {
+            const k = tm.map[y * tm.cols + x] as TileKind;
+            const sp = worldToScreen(vp, x * TILE, y * TILE);
+            const sz = TILE * vp.scale;
             ctx.fillStyle = k === 'water' ? '#0a2038' : k === 'path' ? '#3a2f22' : '#0f2a1f';
             ctx.fillRect(sp.x, sp.y, sz, sz);
-            continue;
+          }
+        }
+      } else {
+        const padTiles = 4;
+        const cx0 = clamp(x0 - padTiles, 0, tm.cols - 1);
+        const cy0 = clamp(y0 - padTiles, 0, tm.rows - 1);
+        const cx1 = clamp(x1 + padTiles, 0, tm.cols);
+        const cy1 = clamp(y1 + padTiles, 0, tm.rows);
+
+        const cache = tileCacheRef.current;
+        const needsRebuild =
+          !cache ||
+          cache.scale !== vp.scale ||
+          cache.tileSize !== TILE ||
+          cx0 < cache.x0 ||
+          cy0 < cache.y0 ||
+          cx1 > cache.x1 ||
+          cy1 > cache.y1;
+
+        if (needsRebuild) {
+          const canvas = cache?.canvas ?? document.createElement('canvas');
+          const cols = cx1 - cx0;
+          const rows = cy1 - cy0;
+          const sz = TILE * vp.scale;
+
+          canvas.width = Math.max(1, Math.floor(cols * sz));
+          canvas.height = Math.max(1, Math.floor(rows * sz));
+
+          const cctx = canvas.getContext('2d');
+          if (cctx) {
+            cctx.clearRect(0, 0, canvas.width, canvas.height);
+            cctx.imageSmoothingEnabled = false;
+
+            // Tiles
+            for (let y = cy0; y < cy1; y++) {
+              for (let x = cx0; x < cx1; x++) {
+                const k = tm.map[y * tm.cols + x] as TileKind;
+                const dx = (x - cx0) * sz;
+                const dy = (y - cy0) * sz;
+
+                if (k === 'water') {
+                  const mask = neighborMask(tm.map, tm.cols, tm.rows, x, y, 'water');
+                  const pos = waterAutotilePos(mask);
+                  const { sx, sy, sw, sh } = atlasSrcRect(pos);
+                  cctx.drawImage(img!, sx, sy, sw, sh, dx, dy, sz, sz);
+                } else if (k === 'path') {
+                  const info = pathEdgeInfo(tm.map, tm.cols, tm.rows, x, y);
+                  const { sx, sy, sw, sh } = atlasSrcRect(info.pos);
+                  cctx.drawImage(img!, sx, sy, sw, sh, dx, dy, sz, sz);
+
+                  const inset = Math.max(2, sz * 0.12);
+                  cctx.fillStyle = 'rgba(90,140,40,0.35)';
+                  if (info.edgeN) cctx.fillRect(dx, dy, sz, inset);
+                  if (info.edgeS) cctx.fillRect(dx, dy + sz - inset, sz, inset);
+                  if (info.edgeW) cctx.fillRect(dx, dy, inset, sz);
+                  if (info.edgeE) cctx.fillRect(dx + sz - inset, dy, inset, sz);
+                } else {
+                  // Grass
+                  const variant = TILESET.grass;
+                  const h = (x * 73856093) ^ (y * 19349663) ^ 3;
+                  const alts = variant.alt || [];
+                  const useBase = (Math.abs(h) % 10) < 3;
+                  const pos = useBase
+                    ? variant.base
+                    : alts.length
+                      ? alts[Math.abs(h >> 4) % alts.length]
+                      : variant.base;
+                  const { sx, sy, sw, sh } = atlasSrcRect(pos);
+                  cctx.drawImage(img!, sx, sy, sw, sh, dx, dy, sz, sz);
+                }
+              }
+            }
+
+            // Static props on top of the tile layer
+            if (tm.props) {
+              for (let i = 0; i < tm.props.length; i++) {
+                const prop = tm.props[i];
+                const px = (prop.x - cx0 * TILE) * vp.scale;
+                const py = (prop.y - cy0 * TILE) * vp.scale;
+                drawProp(cctx, prop, px - 8 * vp.scale, py - 8 * vp.scale, vp.scale, i);
+              }
+            }
           }
 
+          tileCacheRef.current = {
+            canvas,
+            x0: cx0,
+            y0: cy0,
+            x1: cx1,
+            y1: cy1,
+            scale: vp.scale,
+            tileSize: TILE,
+          };
+        }
+
+        const useCache = tileCacheRef.current;
+        if (useCache) {
           ctx.imageSmoothingEnabled = false;
-
-          if (k === 'water') {
-            // Issue #55: Water autotile with shoreline edges + corners
-            const mask = neighborMask(tm.map, tm.cols, tm.rows, x, y, 'water');
-            const pos = waterAutotilePos(mask);
-            const { sx, sy, sw, sh } = atlasSrcRect(pos);
-            ctx.drawImage(img!, sx, sy, sw, sh, sp.x, sp.y, sz, sz);
-          } else if (k === 'path') {
-            // Issue #54: Path with soft grass-border insets on edges
-            const info = pathEdgeInfo(tm.map, tm.cols, tm.rows, x, y);
-            const { sx, sy, sw, sh } = atlasSrcRect(info.pos);
-            ctx.drawImage(img!, sx, sy, sw, sh, sp.x, sp.y, sz, sz);
-
-            // Draw grass-colored border insets on edges facing grass
-            const inset = Math.max(2, sz * 0.12);
-            ctx.fillStyle = 'rgba(90,140,40,0.35)';
-            if (info.edgeN) ctx.fillRect(sp.x, sp.y, sz, inset);
-            if (info.edgeS) ctx.fillRect(sp.x, sp.y + sz - inset, sz, inset);
-            if (info.edgeW) ctx.fillRect(sp.x, sp.y, inset, sz);
-            if (info.edgeE) ctx.fillRect(sp.x + sz - inset, sp.y, inset, sz);
-          } else {
-            // Issue #53: Grass with improved randomization
-            // Mix base tile ~30% of the time for natural variation
-            const variant = TILESET.grass;
-            const h = (x * 73856093) ^ (y * 19349663) ^ 3;
-            const alts = variant.alt || [];
-            const useBase = (Math.abs(h) % 10) < 3;
-            const pos = useBase
-              ? variant.base
-              : alts.length
-                ? alts[Math.abs(h >> 4) % alts.length]
-                : variant.base;
-            const { sx, sy, sw, sh } = atlasSrcRect(pos);
-            ctx.drawImage(img!, sx, sy, sw, sh, sp.x, sp.y, sz, sz);
-          }
+          const tl = worldToScreen(vp, useCache.x0 * TILE, useCache.y0 * TILE);
+          ctx.drawImage(useCache.canvas, tl.x, tl.y);
         }
       }
 
       // Render props (trees, rocks, flowers, etc)
-      if (tm.props) {
+      // When the atlas is ready we already drew props into the cached tile layer.
+      if (!imgReady && tm.props) {
         for (let i = 0; i < tm.props.length; i++) {
           const prop = tm.props[i];
           const sp = worldToScreen(vp, prop.x, prop.y);

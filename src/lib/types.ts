@@ -33,6 +33,7 @@ export function isAgentNode(v: any): v is AgentNode {
     typeof v.lastActivityAt === 'string' &&
     typeof v.repScore === 'number' &&
     typeof v.activityScore === 'number' &&
+    typeof v.vibeScore === 'number' &&
     (v.tags === undefined || (Array.isArray(v.tags) && v.tags.every((t: any) => typeof t === 'string'))) &&
     (v.jobsCompleted === undefined || typeof v.jobsCompleted === 'number') &&
     (v.speedScore === undefined || typeof v.speedScore === 'number') &&

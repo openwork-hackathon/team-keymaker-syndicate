@@ -2,6 +2,8 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Silence Next 16 Turbopack/webpack mixed-config warning; we only tweak webpack in dev.
+  turbopack: {},
   webpack: (config, { dev }) => {
     if (dev) {
       // Disable persistent filesystem cache in dev to prevent
