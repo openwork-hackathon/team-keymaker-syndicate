@@ -221,6 +221,36 @@ export function makeWorldTilemap(worldW: number, worldH: number, tilePx: number)
     map[y * cols + x] = k;
   };
 
+  // District centers (must match page.tsx tierToDistrict())
+  const DISTRICTS = {
+    citadel: { wx: 1680, wy: 500 },
+    uptown: { wx: 1320, wy: 980 },
+    midtown: { wx: 920, wy: 680 },
+    outskirts: { wx: 620, wy: 1120 },
+  } as const;
+
+  const toCell = (wx: number, wy: number) => ({ x: Math.floor(wx / tilePx), y: Math.floor(wy / tilePx) });
+
+  const fillCircle = (cwx: number, cwy: number, rTiles: number, k: TileKind, jitter = 0) => {
+    const c = toCell(cwx, cwy);
+    const r2 = rTiles * rTiles;
+    for (let y = c.y - rTiles - 1; y <= c.y + rTiles + 1; y++) {
+      for (let x = c.x - rTiles - 1; x <= c.x + rTiles + 1; x++) {
+        const dx = x - c.x;
+        const dy = y - c.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 > r2) continue;
+        // optional ragged edge
+        if (jitter) {
+          const h = (x * 73856093) ^ (y * 19349663) ^ 123;
+          const j = (Math.abs(h) % 1000) / 1000;
+          if (j < jitter && d2 > r2 * 0.65) continue;
+        }
+        set(x, y, k);
+      }
+    }
+  };
+
   const line = (x0: number, y0: number, x1: number, y1: number, k: TileKind) => {
     const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
     const sx = x0 < x1 ? 1 : -1;
@@ -236,7 +266,7 @@ export function makeWorldTilemap(worldW: number, worldH: number, tilePx: number)
     }
   };
 
-  // Water pond — elliptical
+  // Water pond — elliptical (outskirts flavor)
   const cx = Math.floor(cols * 0.25);
   const cy = Math.floor(rows * 0.80);
   for (let y = cy - 5; y <= cy + 5; y++) {
@@ -246,16 +276,29 @@ export function makeWorldTilemap(worldW: number, worldH: number, tilePx: number)
     }
   }
 
-  // Paths connecting landmarks
-  const toCell = (wx: number, wy: number) => ({ x: Math.floor(wx / tilePx), y: Math.floor(wy / tilePx) });
+  // Landmark cells
   const docks = toCell(460, 1360);
   const hall = toCell(1080, 760);
   const market = toCell(860, 980);
   const mint = toCell(1520, 1020);
+
+  // Paths connecting landmarks
   line(docks.x, docks.y, hall.x, hall.y, 'path');
   line(market.x, market.y, hall.x, hall.y, 'path');
   line(mint.x, mint.y, hall.x, hall.y, 'path');
   line(market.x, market.y, docks.x, docks.y, 'path');
+
+  // ── District biome palettes (Issue #62)
+  // We only have 3 tile kinds, so we "palette" districts by varying how much
+  // of each area is paved (path) vs wild (grass) and by changing prop density.
+  fillCircle(DISTRICTS.citadel.wx, DISTRICTS.citadel.wy, 7, 'path', 0.15);   // Citadel plaza
+  fillCircle(DISTRICTS.uptown.wx, DISTRICTS.uptown.wy, 6, 'path', 0.22);     // Uptown streets
+  fillCircle(DISTRICTS.midtown.wx, DISTRICTS.midtown.wy, 5, 'path', 0.28);   // Midtown market square
+  // Outskirts stays grassy; we’ll emphasize with trees/flowers props below
+
+  // Add small grass “islands” inside the Citadel so it doesn’t look like one blob
+  fillCircle(DISTRICTS.citadel.wx + 120, DISTRICTS.citadel.wy + 60, 2, 'grass', 0);
+  fillCircle(DISTRICTS.citadel.wx - 90, DISTRICTS.citadel.wy - 50, 2, 'grass', 0);
 
   // Generate scattered props
   const props: Prop[] = [];
@@ -268,53 +311,85 @@ export function makeWorldTilemap(worldW: number, worldH: number, tilePx: number)
   };
   const rand = seededRand(42);
 
-  // Scatter trees in outskirts (left/bottom area)
-  for (let i = 0; i < 45; i++) {
-    const x = 100 + rand() * 700;
-    const y = 900 + rand() * 600;
+  // Scatter trees heavily in outskirts (wild)
+  for (let i = 0; i < 70; i++) {
+    const x = 80 + rand() * 820;
+    const y = 880 + rand() * 680;
     const tx = Math.floor(x / tilePx);
     const ty = Math.floor(y / tilePx);
     if (tx >= 0 && ty >= 0 && tx < cols && ty < rows) {
       const tile = map[ty * cols + tx];
-      if (tile === 'grass') {
-        props.push({ kind: 'tree', x, y });
-      }
+      if (tile === 'grass') props.push({ kind: 'tree', x, y });
     }
   }
 
-  // Scatter rocks near paths and outskirts
-  for (let i = 0; i < 25; i++) {
+  // Uptown: a few decorative trees (cleaner)
+  for (let i = 0; i < 10; i++) {
+    const x = DISTRICTS.uptown.wx - 280 + rand() * 560;
+    const y = DISTRICTS.uptown.wy - 200 + rand() * 400;
+    const tx = Math.floor(x / tilePx);
+    const ty = Math.floor(y / tilePx);
+    if (tx >= 0 && ty >= 0 && tx < cols && ty < rows) {
+      const tile = map[ty * cols + tx];
+      if (tile === 'grass') props.push({ kind: 'tree', x, y });
+    }
+  }
+
+  // Citadel: rocks/statues vibe (more rocks, fewer plants)
+  for (let i = 0; i < 22; i++) {
+    const x = DISTRICTS.citadel.wx - 220 + rand() * 440;
+    const y = DISTRICTS.citadel.wy - 160 + rand() * 320;
+    props.push({ kind: 'rock', x, y });
+  }
+
+  // Scatter rocks lightly elsewhere
+  for (let i = 0; i < 14; i++) {
     const x = 200 + rand() * 1800;
-    const y = 400 + rand() * 1100;
+    const y = 420 + rand() * 1050;
     const tx = Math.floor(x / tilePx);
     const ty = Math.floor(y / tilePx);
     if (tx >= 0 && ty >= 0 && tx < cols && ty < rows) {
       const tile = map[ty * cols + tx];
-      if (tile === 'grass') {
-        props.push({ kind: 'rock', x, y });
-      }
+      if (tile === 'grass') props.push({ kind: 'rock', x, y });
     }
   }
 
-  // Flowers scattered lightly
-  for (let i = 0; i < 20; i++) {
-    const x = 300 + rand() * 1400;
-    const y = 500 + rand() * 900;
+  // Flowers: mostly outskirts + a touch of midtown
+  for (let i = 0; i < 30; i++) {
+    const x = 160 + rand() * 820;
+    const y = 900 + rand() * 620;
     const tx = Math.floor(x / tilePx);
     const ty = Math.floor(y / tilePx);
     if (tx >= 0 && ty >= 0 && tx < cols && ty < rows) {
       const tile = map[ty * cols + tx];
-      if (tile === 'grass') {
-        props.push({ kind: 'flower', x, y });
-      }
+      if (tile === 'grass') props.push({ kind: 'flower', x, y });
+    }
+  }
+  for (let i = 0; i < 8; i++) {
+    const x = DISTRICTS.midtown.wx - 240 + rand() * 480;
+    const y = DISTRICTS.midtown.wy - 160 + rand() * 320;
+    const tx = Math.floor(x / tilePx);
+    const ty = Math.floor(y / tilePx);
+    if (tx >= 0 && ty >= 0 && tx < cols && ty < rows) {
+      const tile = map[ty * cols + tx];
+      if (tile === 'grass') props.push({ kind: 'flower', x, y });
     }
   }
 
-  // Signs near landmarks
+  // Signs / barrels near landmarks + midtown market clutter
   props.push({ kind: 'sign', x: 500, y: 1320 }); // near docks
   props.push({ kind: 'sign', x: 1040, y: 800 }); // near town hall
-  props.push({ kind: 'barrel', x: 820, y: 950 }); // near market
-  props.push({ kind: 'barrel', x: 880, y: 1010 }); // near market
+
+  // Midtown: market clutter
+  for (let i = 0; i < 10; i++) {
+    const x = DISTRICTS.midtown.wx - 240 + rand() * 480;
+    const y = DISTRICTS.midtown.wy - 180 + rand() * 360;
+    props.push({ kind: rand() < 0.65 ? 'barrel' : 'sign', x, y });
+  }
+
+  // Uptown: a couple barrels by the "mint"
+  props.push({ kind: 'barrel', x: 1520, y: 1020 });
+  props.push({ kind: 'barrel', x: 1480, y: 980 });
 
   return { worldW, worldH, tilePx, cols, rows, map, props };
 }
