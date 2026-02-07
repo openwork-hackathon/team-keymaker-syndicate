@@ -283,18 +283,21 @@ export function makeWorldTilemap(worldW: number, worldH: number, tilePx: number)
   const mint = toCell(1520, 1020);
 
   // Paths connecting landmarks
-  line(docks.x, docks.y, hall.x, hall.y, 'path');
+  // Keep the road network readable and avoid accidental suggestive silhouettes.
+  // Main route: Docks → Market → Town Hall → Mint
+  line(docks.x, docks.y, market.x, market.y, 'path');
   line(market.x, market.y, hall.x, hall.y, 'path');
-  line(mint.x, mint.y, hall.x, hall.y, 'path');
-  line(market.x, market.y, docks.x, docks.y, 'path');
+  line(hall.x, hall.y, mint.x, mint.y, 'path');
 
   // ── District biome palettes (Issue #62)
   // We only have 3 tile kinds, so we "palette" districts by varying how much
   // of each area is paved (path) vs wild (grass) and by changing prop density.
-  fillCircle(DISTRICTS.citadel.wx, DISTRICTS.citadel.wy, 7, 'path', 0.15);   // Citadel plaza
-  fillCircle(DISTRICTS.uptown.wx, DISTRICTS.uptown.wy, 6, 'path', 0.22);     // Uptown streets
-  fillCircle(DISTRICTS.midtown.wx, DISTRICTS.midtown.wy, 5, 'path', 0.28);   // Midtown market square
-  // Outskirts stays grassy; we’ll emphasize with trees/flowers props below
+  // Keep plazas smaller so the map reads like streets, not giant blobs.
+  fillCircle(DISTRICTS.citadel.wx, DISTRICTS.citadel.wy, 6, 'path', 0.18);   // Citadel plaza
+  fillCircle(DISTRICTS.uptown.wx, DISTRICTS.uptown.wy, 4, 'path', 0.28);     // Uptown streets
+  fillCircle(DISTRICTS.midtown.wx, DISTRICTS.midtown.wy, 4, 'path', 0.32);   // Midtown market square
+  fillCircle(1520, 1020, 3, 'path', 0.22);                                   // Mint forecourt
+  // Outskirts stays grassy; we’ll emphasize with trees props below
 
   // Add small grass “islands” inside the Citadel so it doesn’t look like one blob
   fillCircle(DISTRICTS.citadel.wx + 120, DISTRICTS.citadel.wy + 60, 2, 'grass', 0);
