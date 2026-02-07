@@ -20,13 +20,13 @@ export type TileVariant = {
 
 export const TILESET: Record<TileKind, TileVariant> = {
   grass: {
-    base: { col: 1, row: 15 },    // rgb(123,173,44) — bright clean green
+    // IMPORTANT: choose ONLY clean grass fills (no flower decorations).
+    base: { col: 1, row: 15 },    // clean green fill
     alt: [
-      { col: 0, row: 16 },         // rgb(123,172,44) — near-identical variant
-      { col: 1, row: 16 },         // rgb(123,173,44)
-      { col: 3, row: 16 },         // rgb(123,173,44)
-      { col: 0, row: 12 },         // rgb(101,159,87) — slightly darker, adds depth
-      { col: 1, row: 13 },         // rgb(108,163,70) — subtle shade variation
+      { col: 0, row: 16 },         // clean green variant
+      { col: 1, row: 16 },         // clean green variant
+      { col: 3, row: 16 },         // clean green variant
+      // NOTE: removed {0,12} and {1,13} because they contain visible flower-like noise.
     ],
   },
   path: {
