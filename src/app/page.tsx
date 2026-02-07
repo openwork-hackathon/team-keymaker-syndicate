@@ -495,6 +495,10 @@ export default function HomePage() {
   const [highlightOwtHolders, setHighlightOwtHolders] = useState(true);
   const [placingBanner, setPlacingBanner] = useState(false);
   const [banners, setBanners] = useState<Banner[]>([]);
+  const bannersRef = useRef<Banner[]>([]);
+  const placingBannerRef = useRef(false);
+  const myAddressRef = useRef<string | undefined>(undefined);
+  const isMyOwtHolderRef = useRef(false);
 
   const [windowWidth, setWindowWidth] = useState<number>(
     typeof window === 'undefined' ? 1024 : window.innerWidth
@@ -542,6 +546,20 @@ export default function HomePage() {
     query: { enabled: Boolean(myAddress) },
   });
   const isMyOwtHolder = (myOwt.data ?? 0n) > 0n;
+
+  // Keep event-handler closures fresh
+  useEffect(() => {
+    bannersRef.current = banners;
+  }, [banners]);
+  useEffect(() => {
+    placingBannerRef.current = placingBanner;
+  }, [placingBanner]);
+  useEffect(() => {
+    myAddressRef.current = myAddress;
+  }, [myAddress]);
+  useEffect(() => {
+    isMyOwtHolderRef.current = isMyOwtHolder;
+  }, [isMyOwtHolder]);
   const [tipStatus, setTipStatus] = useState<string | null>(null);
   const [customTip, setCustomTip] = useState<string>('');
   const [recentTips, setRecentTips] = useState<Array<{ id: string; name: string; amount: number; txHash?: string; at: number }>>([]);
@@ -946,8 +964,9 @@ export default function HomePage() {
       }
 
       // Render banners (session-only, OWT holder power)
-      if (banners.length) {
-        for (const b of banners) {
+      const bannerList = bannersRef.current;
+      if (bannerList.length) {
+        for (const b of bannerList) {
           const sp = worldToScreen(vp, b.wx, b.wy);
           if (sp.x < -60 || sp.y < -60 || sp.x > W + 60 || sp.y > H + 60) continue;
           const s = 1.1 * vp.scale;
@@ -1395,13 +1414,14 @@ export default function HomePage() {
 
       if (moved < 4) {
         // Banner placement mode (OWT holder power)
-        if (placingBanner) {
-          if (!isMyOwtHolder || !myAddress) {
+        if (placingBannerRef.current) {
+          const addr = myAddressRef.current;
+          if (!isMyOwtHolderRef.current || !addr) {
             setPlacingBanner(false);
             return;
           }
           const w = screenToWorld(viewportRef.current, x, y);
-          const short = myAddress.slice(0, 6) + '…' + myAddress.slice(-4);
+          const short = addr.slice(0, 6) + '…' + addr.slice(-4);
           setBanners((prev) => [{ id: String(Date.now()), wx: w.x, wy: w.y, owner: short }, ...prev].slice(0, 20));
           setPlacingBanner(false);
           return;
@@ -1464,7 +1484,7 @@ export default function HomePage() {
     >
       <div style={{ fontWeight: 700, marginBottom: 4 }}>{hovered.name}</div>
       <div style={{ opacity: 0.9 }}>repScore: {hovered.repScore}</div>
-      <div style={{ opacity: 0.85 }}>last: {new Date(hovered.lastActivityAt).toLocaleString()}</div>
+      <div style={{ opacity: 0.85 }}>last: {new Date(hovered.lastActivityAt).toUTCString()}</div>
       {hovered.tags?.length ? <div style={{ opacity: 0.85 }}>tags: {hovered.tags.join(', ')}</div> : null}
     </div>
   ) : null;
@@ -1673,7 +1693,7 @@ export default function HomePage() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
                 <span style={{ opacity: 0.6 }}>Last Activity</span>
-                <span style={{ fontWeight: 500 }}>{new Date(selected.lastActivityAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+                <span style={{ fontWeight: 500 }}>{new Date(selected.lastActivityAt).toUTCString()}</span>
               </div>
               {selected.walletAddress ? (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
