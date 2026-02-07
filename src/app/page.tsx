@@ -2,6 +2,10 @@
 
 // Hot reload test comment 2
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useAccount, useWriteContract, useSwitchChain } from 'wagmi';
+import { base } from 'wagmi/chains';
+import { parseUnits, isAddress } from 'viem';
+import { ERC20_ABI, OWT_TOKEN_ADDRESS } from '@/lib/tokens';
 import type { AgentNode, LiveResponse } from '@/lib/types';
 import { isLiveResponse } from '@/lib/types';
 import { KENNEY_TILE_SIZE, atlasSrcRect, makeWorldTilemap, TILESET, type TileKind, type WorldTilemap, type Prop, type PropKind, neighborMask, waterAutotilePos, pathEdgeInfo } from '@/lib/tilemap';
@@ -491,6 +495,11 @@ export default function HomePage() {
     vy: 0,
   });
 
+  const { address: myAddress, chainId } = useAccount();
+  const { writeContractAsync, isPending: tipPending } = useWriteContract();
+  const { switchChainAsync } = useSwitchChain();
+  const [tipStatus, setTipStatus] = useState<string | null>(null);
+
   const selected = useMemo(
     () => agents.find((a) => a.id === selectedId) ?? null,
     [agents, selectedId]
@@ -839,10 +848,11 @@ export default function HomePage() {
                 const prop = tm.props[i];
 
                 // Zoom-based prop culling
-                const isFlower = prop.kind === 'flower';
+                // Flowers disabled (too noisy)
+                if (prop.kind === 'flower') continue;
+                const isFlower = false;
                 const isBusy = prop.kind === 'barrel';
                 if (isBusy && z < 1.2) continue;
-                if (isFlower && z < 1.6) continue;
 
                 const px = (prop.x - cx0 * TILE) * z;
                 const py = (prop.y - cy0 * TILE) * z;
@@ -1494,6 +1504,8 @@ export default function HomePage() {
                   onClick={async () => {
                     try {
                       await navigator.clipboard.writeText(selected.walletAddress!);
+                      setTipStatus('Wallet copied');
+                      setTimeout(() => setTipStatus(null), 1200);
                     } catch {
                       // ignore
                     }
@@ -1520,6 +1532,61 @@ export default function HomePage() {
                 </button>
               ) : null}
             </div>
+
+            {/* Tip actions (OWT) */}
+            {selected.walletAddress ? (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.85, marginBottom: 8 }}>Tip with OWT</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {[1, 5, 10].map((amt) => (
+                    <button
+                      key={amt}
+                      disabled={tipPending}
+                      onClick={async () => {
+                        const to = selected.walletAddress!;
+                        if (!isAddress(to)) {
+                          setTipStatus('Invalid wallet address');
+                          setTimeout(() => setTipStatus(null), 1600);
+                          return;
+                        }
+                        try {
+                          setTipStatus(null);
+                          if (chainId !== base.id) {
+                            await switchChainAsync({ chainId: base.id });
+                          }
+                          const txHash = await writeContractAsync({
+                            abi: ERC20_ABI,
+                            address: OWT_TOKEN_ADDRESS,
+                            functionName: 'transfer',
+                            args: [to, parseUnits(String(amt), 18)],
+                          });
+                          setTipStatus(`Tip sent: ${String(txHash).slice(0, 10)}…`);
+                        } catch (e: any) {
+                          setTipStatus(e?.shortMessage || e?.message || 'Tip failed');
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        minWidth: 90,
+                        padding: '9px 10px',
+                        borderRadius: 10,
+                        background: 'rgba(245, 197, 66, 0.16)',
+                        border: '1px solid rgba(245, 197, 66, 0.32)',
+                        color: 'rgba(255,255,255,0.95)',
+                        fontSize: 12,
+                        fontWeight: 800,
+                        cursor: tipPending ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      Tip {amt}
+                    </button>
+                  ))}
+                </div>
+                {tipStatus ? (
+                  <div style={{ marginTop: 8, fontSize: 11, opacity: 0.85, wordBreak: 'break-word' }}>{tipStatus}</div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         )}
       </div>
