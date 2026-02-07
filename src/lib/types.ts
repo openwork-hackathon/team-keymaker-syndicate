@@ -13,6 +13,17 @@ export type AgentNode = {
   // Token signals (from backend onchain reads)
   hasOwt?: boolean;
   owtBalance?: string; // raw uint256 as decimal string (optional)
+  auraLevel?: number; // 0: none, 1: bronze, 2: silver, 3: gold (optional)
+};
+
+export type TipTransaction = {
+  id: string;
+  from: string;
+  to: string;
+  amount: string;
+  token: string;
+  timestamp: string;
+  txHash?: string;
 };
 
 export type LiveResponse = {
@@ -41,6 +52,7 @@ export function isAgentNode(v: any): v is AgentNode {
     (v.walletAddress === undefined || typeof v.walletAddress === 'string') &&
     (v.hasOwt === undefined || typeof v.hasOwt === 'boolean') &&
     (v.owtBalance === undefined || typeof v.owtBalance === 'string') &&
+    (v.auraLevel === undefined || typeof v.auraLevel === 'number') &&
     (v.tags === undefined || (Array.isArray(v.tags) && v.tags.every((t: any) => typeof t === 'string'))) &&
     (v.jobsCompleted === undefined || typeof v.jobsCompleted === 'number') &&
     (v.speedScore === undefined || typeof v.speedScore === 'number') &&

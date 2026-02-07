@@ -569,6 +569,39 @@ export default function HomePage() {
     };
   }, []);
 
+  // Poll tips data
+  useEffect(() => {
+    let alive = true;
+    async function fetchTips() {
+      try {
+        const r = await fetch('/api/tips', { cache: 'no-store' });
+        if (!r.ok) return;
+        const j = await r.json();
+        if (!alive) return;
+        
+        // Convert API TipTransaction to local format if needed
+        const mappedTips = j.tips.map((t: any) => ({
+          id: t.id,
+          name: t.from.slice(0, 6) + '...' + t.from.slice(-4),
+          amount: parseFloat(t.amount),
+          txHash: t.txHash,
+          at: new Date(t.timestamp).getTime()
+        }));
+        
+        setRecentTips(mappedTips);
+      } catch (err) {
+        console.error('Failed to fetch tips:', err);
+      }
+    }
+
+    fetchTips();
+    const t = setInterval(fetchTips, 30_000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
+
   // Recompute layout when agent set changes
   useEffect(() => {
     agentsRef.current = agents;
@@ -1154,11 +1187,20 @@ export default function HomePage() {
         }
 
         // OWT holder aura (persistent, from backend)
-        if (a.hasOwt) {
+        if (a.hasOwt && a.auraLevel) {
           const hp = 0.55 + 0.45 * Math.sin(t / 900 + (hashStringToU32(a.id) % 1000) / 200);
+          const auraRadius = (16 + (a.auraLevel - 1) * 8) * vp.scale;
+          const auraOpacity = (0.10 + (a.auraLevel - 1) * 0.05) * hp;
+          
           ctx.beginPath();
-          ctx.arc(p.x, p.y, base * 0.75 + 16 * vp.scale, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(80, 230, 170, ' + (0.10 * hp) + ')';
+          ctx.arc(p.x, p.y, base * 0.75 + auraRadius, 0, Math.PI * 2);
+          
+          let auraColor = 'rgba(80, 230, 170, '; // Default teal
+          if (a.auraLevel === 3) auraColor = 'rgba(255, 215, 0, '; // Gold
+          if (a.auraLevel === 2) auraColor = 'rgba(192, 192, 192, '; // Silver
+          if (a.auraLevel === 1) auraColor = 'rgba(205, 127, 50, '; // Bronze
+          
+          ctx.fillStyle = auraColor + auraOpacity + ')';
           ctx.fill();
         }
 

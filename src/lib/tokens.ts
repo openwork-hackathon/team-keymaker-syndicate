@@ -39,3 +39,16 @@ export const ERC20_ABI = [
     outputs: [{ name: '', type: 'bool' }]
   },
 ] as const;
+
+/**
+ * Calculates aura level based on OWT token balance.
+ * @param balance Raw bigint balance (with 18 decimals)
+ * @returns Aura level (0-3)
+ */
+export function calculateAuraLevel(balance: bigint): number {
+  const oneToken = 10n ** 18n;
+  if (balance >= 1000n * oneToken) return 3; // Gold
+  if (balance >= 100n * oneToken) return 2;  // Silver
+  if (balance >= 1n * oneToken) return 1;    // Bronze
+  return 0; // None
+}

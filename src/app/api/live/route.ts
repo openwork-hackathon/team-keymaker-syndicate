@@ -3,7 +3,7 @@ import type { LiveResponse } from '@/lib/types';
 import { openwork } from '@/lib/openwork';
 import { createPublicClient, http, isAddress } from 'viem';
 import { base } from 'viem/chains';
-import { ERC20_ABI, OWT_TOKEN_ADDRESS } from '@/lib/tokens';
+import { ERC20_ABI, OWT_TOKEN_ADDRESS, calculateAuraLevel } from '@/lib/tokens';
 
 // Caching configuration
 const CACHE_TTL = 30; // seconds
@@ -134,6 +134,7 @@ export async function GET(req: NextRequest) {
       ...a,
       hasOwt: bal > 0n,
       owtBalance: bal.toString(),
+      auraLevel: calculateAuraLevel(bal),
     };
   });
 
