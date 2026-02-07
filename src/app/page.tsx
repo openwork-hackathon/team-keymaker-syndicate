@@ -2,7 +2,7 @@
 
 // Hot reload test comment 2
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useAccount, useWriteContract, useSwitchChain } from 'wagmi';
+import { useAccount, useWriteContract, useSwitchChain, useReadContract } from 'wagmi';
 import { base } from 'wagmi/chains';
 import { parseUnits, isAddress } from 'viem';
 import { ERC20_ABI, OWT_TOKEN_ADDRESS } from '@/lib/tokens';
@@ -11,6 +11,13 @@ import { isLiveResponse } from '@/lib/types';
 import { KENNEY_TILE_SIZE, atlasSrcRect, makeWorldTilemap, TILESET, type TileKind, type WorldTilemap, type Prop, type PropKind, neighborMask, waterAutotilePos, pathEdgeInfo } from '@/lib/tilemap';
 
 type Star = { x: number; y: number; r: number; a: number };
+
+type Banner = {
+  id: string;
+  wx: number;
+  wy: number;
+  owner: string; // short address
+};
 
 type LayoutNode = {
   id: string;
@@ -486,6 +493,8 @@ export default function HomePage() {
   const [copied, setCopied] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [highlightOwtHolders, setHighlightOwtHolders] = useState(true);
+  const [placingBanner, setPlacingBanner] = useState(false);
+  const [banners, setBanners] = useState<Banner[]>([]);
 
   const [windowWidth, setWindowWidth] = useState<number>(
     typeof window === 'undefined' ? 1024 : window.innerWidth
@@ -525,6 +534,14 @@ export default function HomePage() {
   const { address: myAddress, chainId } = useAccount();
   const { writeContractAsync, isPending: tipPending } = useWriteContract();
   const { switchChainAsync } = useSwitchChain();
+  const myOwt = useReadContract({
+    abi: ERC20_ABI,
+    address: OWT_TOKEN_ADDRESS,
+    functionName: 'balanceOf',
+    args: myAddress ? [myAddress] : undefined,
+    query: { enabled: Boolean(myAddress) },
+  });
+  const isMyOwtHolder = (myOwt.data ?? 0n) > 0n;
   const [tipStatus, setTipStatus] = useState<string | null>(null);
   const [customTip, setCustomTip] = useState<string>('');
   const [recentTips, setRecentTips] = useState<Array<{ id: string; name: string; amount: number; txHash?: string; at: number }>>([]);
@@ -925,6 +942,42 @@ export default function HomePage() {
           // Cull off-screen props
           if (sp.x < -50 || sp.y < -50 || sp.x > W + 50 || sp.y > H + 50) continue;
           drawProp(ctx, prop, sp.x - 8 * vp.scale, sp.y - 8 * vp.scale, vp.scale, i);
+        }
+      }
+
+      // Render banners (session-only, OWT holder power)
+      if (banners.length) {
+        for (const b of banners) {
+          const sp = worldToScreen(vp, b.wx, b.wy);
+          if (sp.x < -60 || sp.y < -60 || sp.x > W + 60 || sp.y > H + 60) continue;
+          const s = 1.1 * vp.scale;
+          ctx.save();
+          ctx.imageSmoothingEnabled = false;
+          // pole shadow
+          ctx.globalAlpha = 0.25;
+          ctx.fillStyle = 'rgba(0,0,0,1)';
+          ctx.beginPath();
+          ctx.ellipse(sp.x, sp.y + 12 * vp.scale, 10 * vp.scale, 3 * vp.scale, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          // pole
+          ctx.fillStyle = '#3b2b1b';
+          ctx.fillRect(sp.x - 1 * s, sp.y - 16 * s, 2 * s, 22 * s);
+          // flag
+          ctx.fillStyle = 'rgba(245, 197, 66, 0.95)';
+          ctx.fillRect(sp.x + 1 * s, sp.y - 16 * s, 14 * s, 9 * s);
+          ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(sp.x + 1 * s, sp.y - 16 * s, 14 * s, 9 * s);
+          // owner tag
+          if (vp.scale > 0.85) {
+            ctx.globalAlpha = 0.8;
+            ctx.font = `${Math.max(10, 11 * vp.scale)}px system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            drawTextWithHalo(ctx, b.owner, sp.x - 10 * vp.scale, sp.y + 10 * vp.scale, 'rgba(255,255,255,0.9)', 'rgba(0,0,0,0.55)');
+          }
+          ctx.restore();
         }
       }
 
@@ -1341,6 +1394,19 @@ export default function HomePage() {
       const y = ev.clientY - rect.top;
 
       if (moved < 4) {
+        // Banner placement mode (OWT holder power)
+        if (placingBanner) {
+          if (!isMyOwtHolder || !myAddress) {
+            setPlacingBanner(false);
+            return;
+          }
+          const w = screenToWorld(viewportRef.current, x, y);
+          const short = myAddress.slice(0, 6) + '…' + myAddress.slice(-4);
+          setBanners((prev) => [{ id: String(Date.now()), wx: w.x, wy: w.y, owner: short }, ...prev].slice(0, 20));
+          setPlacingBanner(false);
+          return;
+        }
+
         const id = pickAgentAt(x, y);
         setSelectedId(id);
       }
@@ -1504,6 +1570,16 @@ export default function HomePage() {
 
             <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
               <div style={{ fontWeight: 800, marginBottom: 6 }}>Token View</div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'rgba(80, 230, 170, 0.35)', border: '1px solid rgba(80, 230, 170, 0.85)' }} />
+                <span>OWT holder aura</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'rgba(245, 197, 66, 0.95)', border: '1px solid rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(10,14,26,0.95)', fontWeight: 900, fontSize: 10 }}>$</div>
+                <span>OWT holder badge (zoomed)</span>
+              </div>
+
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
                 <input
                   type="checkbox"
@@ -1513,7 +1589,35 @@ export default function HomePage() {
                 <span>Highlight OWT holders</span>
               </label>
               <div style={{ marginTop: 6, opacity: 0.8, fontSize: 11 }}>
-                Holders get a teal aura + $ badge; non-holders dim when enabled.
+                When enabled, non-holders dim so holders pop.
+              </div>
+
+              <div style={{ marginTop: 10 }}>
+                <button
+                  disabled={!isMyOwtHolder || !myAddress}
+                  onClick={() => setPlacingBanner((v) => !v)}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: 12,
+                    background: placingBanner ? 'rgba(245, 197, 66, 0.22)' : 'rgba(255,255,255,0.10)',
+                    border: placingBanner ? '1px solid rgba(245, 197, 66, 0.45)' : '1px solid rgba(255,255,255,0.14)',
+                    color: 'rgba(255,255,255,0.92)',
+                    fontSize: 13,
+                    fontWeight: 800,
+                    cursor: (!isMyOwtHolder || !myAddress) ? 'not-allowed' : 'pointer',
+                  }}
+                  title={!myAddress ? 'Connect a wallet' : !isMyOwtHolder ? 'Requires holding any OWT' : 'Click then click the map to place a banner'}
+                >
+                  {placingBanner ? 'Click map to place banner…' : 'Place Banner (OWT holders)'}
+                </button>
+                {!myAddress ? (
+                  <div style={{ marginTop: 6, opacity: 0.75, fontSize: 11 }}>Connect your wallet to unlock holder actions.</div>
+                ) : !isMyOwtHolder ? (
+                  <div style={{ marginTop: 6, opacity: 0.75, fontSize: 11 }}>Hold any OWT to place banners on the town map.</div>
+                ) : (
+                  <div style={{ marginTop: 6, opacity: 0.75, fontSize: 11 }}>Place a flag anywhere. Session-only for now.</div>
+                )}
               </div>
             </div>
           </div>
