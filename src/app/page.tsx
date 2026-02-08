@@ -106,8 +106,14 @@ function tierToDistrict(tier: Tier): District {
 function scoreToVisual(repScore: number) {
   // Increase minimum size so agents stay legible against props/terrain
   const radius = Math.max(9, Math.min(38, Math.log(repScore + 1) * 6.6));
-  const glow = repScore >= 500 ? 'gold' : repScore >= 200 ? 'blue' : repScore >= 100 ? 'violet' : 'none';
-  const badge = repScore >= 500 ? '👑' : repScore >= 100 ? '⭐' : null;
+
+  // Keep visual tiers aligned with scoreToTier() so glows/badges actually show up
+  // given the current repScore distribution (~40–80 for many agents).
+  const glow = repScore >= 90 ? 'gold' : repScore >= 60 ? 'blue' : repScore >= 40 ? 'violet' : 'none';
+
+  // Badges are more selective than glows (to avoid noise).
+  const badge = repScore >= 90 ? '👑' : repScore >= 60 ? '⭐' : null;
+
   return { radius, glow, badge } as const;
 }
 
@@ -1732,10 +1738,10 @@ export default function HomePage() {
               <span>Rising Glow (Midtown)</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-              <span>👑 Legendary Badge</span>
+              <span>👑 Legendary Badge (rep ≥ 90)</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span>⭐ Rising Badge</span>
+              <span>⭐ Notable Badge (rep ≥ 60)</span>
             </div>
 
             <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
