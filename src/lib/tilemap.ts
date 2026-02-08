@@ -223,10 +223,10 @@ export function makeWorldTilemap(worldW: number, worldH: number, tilePx: number)
 
   // District centers (must match page.tsx tierToDistrict())
   const DISTRICTS = {
-    citadel: { wx: 1680, wy: 500 },
-    uptown: { wx: 1320, wy: 980 },
-    midtown: { wx: 920, wy: 680 },
-    outskirts: { wx: 620, wy: 1120 },
+    citadel: { wx: 1680, wy: 460 },
+    uptown: { wx: 1320, wy: 820 },
+    midtown: { wx: 980, wy: 980 },
+    outskirts: { wx: 520, wy: 760 },
   } as const;
 
   const toCell = (wx: number, wy: number) => ({ x: Math.floor(wx / tilePx), y: Math.floor(wy / tilePx) });

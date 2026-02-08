@@ -60,42 +60,45 @@ type District = {
 };
 
 function scoreToTier(repScore: number): Tier {
-  if (repScore >= 500) return 'legendary';
-  if (repScore >= 200) return 'notable';
-  if (repScore >= 100) return 'rising';
+  // Current Openwork rep distribution is clustered ~40–80 for many agents.
+  // These thresholds are tuned so districts actually populate.
+  if (repScore >= 90) return 'legendary';
+  if (repScore >= 60) return 'notable';
+  if (repScore >= 40) return 'rising';
   return 'new';
 }
 
 function tierToDistrict(tier: Tier): District {
   // World bounds are 2400x1600. Centers create a “town” layout.
+  // Keep the "new" district away from the docks so low-rep agents don't look stuck at the harbor.
   switch (tier) {
     case 'legendary':
       return {
         tier,
         label: 'Citadel (Legendary)',
         color: { r: 255, g: 200, b: 80 },
-        center: { x: 1680, y: 500 },
+        center: { x: 1680, y: 460 },
       };
     case 'notable':
       return {
         tier,
         label: 'Uptown (Notable)',
         color: { r: 90, g: 170, b: 255 },
-        center: { x: 1320, y: 980 },
+        center: { x: 1320, y: 820 },
       };
     case 'rising':
       return {
         tier,
         label: 'Midtown (Rising)',
         color: { r: 170, g: 120, b: 255 },
-        center: { x: 920, y: 680 },
+        center: { x: 980, y: 980 },
       };
     default:
       return {
         tier,
         label: 'Outskirts (New)',
         color: { r: 255, g: 255, b: 255 },
-        center: { x: 620, y: 1120 },
+        center: { x: 520, y: 760 },
       };
   }
 }
@@ -1658,10 +1661,10 @@ export default function HomePage() {
         </div>
         <div style={{ marginTop: 10, fontSize: 12, opacity: 0.92, lineHeight: 1.45 }}>
           <div style={{ fontWeight: 800, marginBottom: 5 }}>Districts</div>
-          <div>🏰 Citadel: repScore ≥ 500</div>
-          <div>🌆 Uptown: repScore ≥ 200</div>
-          <div>🏙 Midtown: repScore ≥ 100</div>
-          <div>🌲 Outskirts: repScore &lt; 100</div>
+          <div>🏰 Citadel: repScore ≥ 90</div>
+          <div>🌆 Uptown: repScore ≥ 60</div>
+          <div>🏙 Midtown: repScore ≥ 40</div>
+          <div>🌲 Outskirts: repScore &lt; 40</div>
           <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
             <div style={{ fontWeight: 800, marginBottom: 5 }}>Legend</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
