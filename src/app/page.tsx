@@ -180,23 +180,22 @@ function drawTextWithHalo(
 }
 
 type SpritePalette = {
-  skin: string;
-  hair: string;
-  cloth: string;
   metal: string;
-  boot: string;
+  outline: string;
+  screen: string;
+  glow: string;
 };
 
 function tierToPalette(tier: Tier): SpritePalette {
   switch (tier) {
     case 'legendary':
-      return { skin: '#F2C9A0', hair: '#1b120d', cloth: '#F5C542', metal: '#ECEEF4', boot: '#131826' };
+      return { metal: '#E7ECF8', outline: '#0b1020', screen: '#F5C542', glow: 'rgba(245, 197, 66, 0.35)' };
     case 'notable':
-      return { skin: '#F2C9A0', hair: '#152031', cloth: '#59B0FF', metal: '#E3E6EF', boot: '#131826' };
+      return { metal: '#E7ECF8', outline: '#0b1020', screen: '#59B0FF', glow: 'rgba(90, 170, 255, 0.35)' };
     case 'rising':
-      return { skin: '#F2C9A0', hair: '#231534', cloth: '#B07AFF', metal: '#E3E6EF', boot: '#131826' };
+      return { metal: '#E7ECF8', outline: '#0b1020', screen: '#B07AFF', glow: 'rgba(175, 120, 255, 0.35)' };
     default:
-      return { skin: '#F2C9A0', hair: '#2b2018', cloth: '#C8CBD6', metal: '#D7DAE4', boot: '#131826' };
+      return { metal: '#E1E6F2', outline: '#0b1020', screen: '#C8CBD6', glow: 'rgba(255, 255, 255, 0.18)' };
   }
 }
 
@@ -204,59 +203,74 @@ function drawPixel(ctx: CanvasRenderingContext2D, x: number, y: number, px: numb
   ctx.fillRect(x + px * size, y + py * size, size, size);
 }
 
-function drawRpgSprite(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, tier: Tier, frame: number) {
-  // 16x16 pixel sprite. x,y = top-left in screen space.
-  const size = Math.max(1, Math.floor(1.35 * scale));
+function drawRobotSprite(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, tier: Tier, frame: number) {
+  // Chunky robot sprite with a "screen face". Reads as AI from a distance.
+  // 16x16 design drawn with slightly larger pixels so it pops.
+  const size = Math.max(1, Math.floor(1.55 * scale));
   const pal = tierToPalette(tier);
 
   const bounce = frame % 2 === 0 ? 0 : 1;
-  const footL = frame % 4 < 2 ? 1 : 0;
-  const footR = frame % 4 < 2 ? 0 : 1;
+  const step = frame % 4 < 2 ? 0 : 1;
 
   const ox = x;
   const oy = y - bounce * size;
 
-  // head/hair
-  ctx.fillStyle = pal.hair;
-  for (let px = 5; px <= 10; px++) drawPixel(ctx, ox, oy, px, 1, size);
-  for (let px = 4; px <= 11; px++) drawPixel(ctx, ox, oy, px, 2, size);
-
-  // face
-  ctx.fillStyle = pal.skin;
-  for (let py = 3; py <= 6; py++) for (let px = 5; px <= 10; px++) drawPixel(ctx, ox, oy, px, py, size);
-
-  // eyes
-  ctx.fillStyle = '#0b1020';
-  drawPixel(ctx, ox, oy, 6, 5, size);
-  drawPixel(ctx, ox, oy, 9, 5, size);
-
-  // body
-  ctx.fillStyle = pal.cloth;
-  for (let py = 7; py <= 12; py++) for (let px = 5; px <= 10; px++) drawPixel(ctx, ox, oy, px, py, size);
-  for (let px = 4; px <= 11; px++) drawPixel(ctx, ox, oy, px, 7, size);
-
-  // belt
-  ctx.fillStyle = pal.metal;
-  for (let px = 6; px <= 9; px++) drawPixel(ctx, ox, oy, px, 10, size);
-
-  // legs
-  ctx.fillStyle = '#222733';
-  for (let py = 13; py <= 14; py++) {
-    drawPixel(ctx, ox, oy, 6, py, size);
-    drawPixel(ctx, ox, oy, 9, py, size);
+  // body outline (rounded-ish)
+  ctx.fillStyle = pal.outline;
+  for (let py = 3; py <= 14; py++) {
+    for (let px = 4; px <= 11; px++) {
+      const edge = px === 4 || px === 11 || py === 3 || py === 14;
+      if (edge) drawPixel(ctx, ox, oy, px, py, size);
+    }
   }
 
-  // feet (walk)
-  ctx.fillStyle = pal.boot;
-  drawPixel(ctx, ox, oy, 5 + footL, 15, size);
-  drawPixel(ctx, ox, oy, 8 + footR, 15, size);
+  // metal body
+  ctx.fillStyle = pal.metal;
+  for (let py = 4; py <= 13; py++) for (let px = 5; px <= 10; px++) drawPixel(ctx, ox, oy, px, py, size);
 
-  // crown flair
+  // screen bezel
+  ctx.fillStyle = pal.outline;
+  for (let py = 5; py <= 9; py++) for (let px = 6; px <= 9; px++) drawPixel(ctx, ox, oy, px, py, size);
+
+  // screen glow fill
+  ctx.fillStyle = pal.screen;
+  for (let py = 6; py <= 8; py++) for (let px = 7; px <= 8; px++) drawPixel(ctx, ox, oy, px, py, size);
+
+  // eyes (blink)
+  const blink = frame % 8 === 0;
+  ctx.fillStyle = '#0b1020';
+  if (!blink) {
+    drawPixel(ctx, ox, oy, 7, 7, size);
+    drawPixel(ctx, ox, oy, 8, 7, size);
+  } else {
+    drawPixel(ctx, ox, oy, 7, 7, size);
+    drawPixel(ctx, ox, oy, 8, 7, size);
+    drawPixel(ctx, ox, oy, 7, 8, size);
+    drawPixel(ctx, ox, oy, 8, 8, size);
+  }
+
+  // antenna (tier signal)
+  ctx.fillStyle = pal.outline;
+  drawPixel(ctx, ox, oy, 8, 1, size);
+  drawPixel(ctx, ox, oy, 8, 2, size);
+  ctx.fillStyle = pal.screen;
+  drawPixel(ctx, ox, oy, 8, 0, size);
+
+  // feet (walk)
+  ctx.fillStyle = pal.outline;
+  drawPixel(ctx, ox, oy, 6 + step, 15, size);
+  drawPixel(ctx, ox, oy, 9 - step, 15, size);
+
+  // tiny side arms (helps silhouette)
+  ctx.fillStyle = pal.outline;
+  drawPixel(ctx, ox, oy, 3, 10, size);
+  drawPixel(ctx, ox, oy, 12, 10, size);
+
+  // legendary crown-ish top notch
   if (tier === 'legendary') {
-    ctx.fillStyle = '#F5C542';
-    drawPixel(ctx, ox, oy, 6, 0, size);
-    drawPixel(ctx, ox, oy, 8, 0, size);
-    drawPixel(ctx, ox, oy, 7, 1, size);
+    ctx.fillStyle = pal.screen;
+    drawPixel(ctx, ox, oy, 6, 2, size);
+    drawPixel(ctx, ox, oy, 10, 2, size);
   }
 }
 
@@ -1399,7 +1413,7 @@ export default function HomePage() {
         ctx.restore();
 
         // Place sprite relative to ground point p.y (feet near the shadow)
-        drawRpgSprite(
+        drawRobotSprite(
           ctx,
           p.x - 8 * Math.max(1, Math.floor(spriteMul * spriteScale)),
           p.y - 10 * spriteScale,
