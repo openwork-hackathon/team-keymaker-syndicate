@@ -379,8 +379,60 @@ function computeLayout(agents: AgentNode[], prev?: Map<string, LayoutNode>, tm?:
 
     const existing = prev?.get(a.id);
     if (existing) {
-      // Keep inertia for "town" stability; only update tier + radius.
-      next.set(a.id, { ...existing, r: radius, tier });
+      // Keep inertia for "town" stability, but if the tier changed (or we drifted far away), migrate.
+      const district = tierToDistrict(tier);
+      const dx = existing.x - district.center.x;
+      const dy = existing.y - district.center.y;
+      const dist = Math.hypot(dx, dy);
+      const tierChanged = existing.tier !== tier;
+      const tooFar = dist > 520; // world units
+
+      if (!tierChanged && !tooFar) {
+        next.set(a.id, { ...existing, r: radius, tier });
+        continue;
+      }
+
+      // Recompute a deterministic target position in the new district and blend toward it.
+      const seed = hashStringToU32(a.id);
+      const rand = mulberry32(seed);
+      const spreadX = tier === 'legendary' ? 200 : tier === 'notable' ? 250 : tier === 'rising' ? 300 : 360;
+      const spreadY = tier === 'legendary' ? 140 : tier === 'notable' ? 190 : tier === 'rising' ? 230 : 280;
+      const angle = rand() * Math.PI * 2;
+      const r01 = Math.sqrt(rand());
+      let tx = district.center.x + Math.cos(angle) * r01 * spreadX;
+      let ty = district.center.y + Math.sin(angle) * r01 * spreadY;
+      tx = clamp(tx, pad, WORLD_W - pad);
+      ty = clamp(ty, pad, WORLD_H - pad);
+
+      // Snap target to road if possible (keeps "walking in town" feel)
+      if (tm) {
+        const ttx = Math.floor(tx / tm.tilePx);
+        const tty = Math.floor(ty / tm.tilePx);
+        const maxR = 7;
+        let best: { x: number; y: number; d2: number } | null = null;
+        for (let oy = -maxR; oy <= maxR; oy++) {
+          for (let ox = -maxR; ox <= maxR; ox++) {
+            const cx = ttx + ox;
+            const cy = tty + oy;
+            if (cx < 0 || cy < 0 || cx >= tm.cols || cy >= tm.rows) continue;
+            const k = tm.map[cy * tm.cols + cx];
+            if (k !== 'path') continue;
+            const d2 = ox * ox + oy * oy;
+            if (!best || d2 < best.d2) best = { x: cx, y: cy, d2 };
+          }
+        }
+        if (best) {
+          const jitter = (rand() - 0.5) * (tm.tilePx * 0.45);
+          tx = best.x * tm.tilePx + tm.tilePx / 2 + jitter;
+          ty = best.y * tm.tilePx + tm.tilePx / 2 + jitter;
+        }
+      }
+
+      const blend = tierChanged ? 0.55 : 0.35;
+      const x = existing.x + (tx - existing.x) * blend;
+      const y = existing.y + (ty - existing.y) * blend;
+
+      next.set(a.id, { ...existing, x, y, r: radius, tier });
       continue;
     }
 
