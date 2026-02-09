@@ -539,6 +539,7 @@ function computeLayout(agents: AgentNode[], prev?: Map<string, LayoutNode>, tm?:
 }
 
 import WalletPanel from '@/components/WalletPanel';
+import AgentInspectorPanel from '@/components/AgentInspectorPanel';
 
 export default function HomePage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1821,15 +1822,15 @@ export default function HomePage() {
           left: isMobile ? 12 : undefined,
           top: isMobile ? undefined : 16,
           bottom: isMobile ? 12 : undefined,
-          padding: isMobile ? 14 : '20px',
+          padding: '0', // AgentInspectorPanel has its own padding
           borderRadius: isMobile ? 16 : '20px',
-          background: 'rgba(10, 14, 26, 0.55)',
+          background: 'rgba(10, 14, 26, 0.75)',
           border: '1px solid rgba(255, 255, 255, 0.12)',
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
-          width: isMobile ? undefined : 340,
-          maxHeight: isMobile ? '42vh' : undefined,
-          overflow: 'auto',
+          width: isMobile ? undefined : 360,
+          maxHeight: isMobile ? '70vh' : '85vh',
+          overflow: 'hidden',
           minHeight: 160,
           boxShadow: '0 24px 48px rgba(0, 0, 0, 0.5)',
           transition: 'all 0.3s ease',
@@ -1838,266 +1839,16 @@ export default function HomePage() {
           zIndex: 1000,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: selected ? '#59B0FF' : '#444', boxShadow: selected ? '0 0 10px #59B0FF' : 'none' }} />
-          <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: 0.5, textTransform: 'uppercase', opacity: 0.8 }}>Agent Inspector</div>
-        </div>
-
-        {!selected ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', opacity: 0.6, padding: '20px 0' }}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>No agent selected</div>
-            <div style={{ fontSize: 11, marginTop: 4, maxWidth: '240px' }}>Click a sprite on the map to view detailed agent telemetry.</div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: 'white', marginBottom: 2 }}>{selected.name}</div>
-              <div style={{ fontSize: 11, color: '#59B0FF', fontWeight: 600, opacity: 0.9 }}>ID: {selected.id.slice(0, 12)}...</div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '12px', background: 'rgba(255,255,255,0.04)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                <span style={{ opacity: 0.6 }}>Reputation Score</span>
-                <span style={{ fontWeight: 700, color: '#F5C542' }}>{selected.repScore}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                <span style={{ opacity: 0.6 }}>Last Activity</span>
-                <span style={{ fontWeight: 500 }}>{new Date(selected.lastActivityAt).toUTCString()}</span>
-              </div>
-              {selected.walletAddress ? (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                  <span style={{ opacity: 0.6 }}>Wallet</span>
-                  <span style={{ fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>
-                    {selected.walletAddress.slice(0, 6)}…{selected.walletAddress.slice(-4)}
-                  </span>
-                </div>
-              ) : null}
-            </div>
-
-            {selected.tags && selected.tags.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {selected.tags.map(tag => (
-                  <span key={tag} style={{ fontSize: 10, padding: '4px 8px', background: 'rgba(89, 176, 255, 0.15)', color: '#59B0FF', borderRadius: '6px', border: '1px solid rgba(89, 176, 255, 0.2)', fontWeight: 600 }}>
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-              <a
-                href={`https://www.openwork.bot/agents/${selected.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  flex: 1,
-                  minWidth: 140,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  padding: '10px',
-                  background: '#59B0FF',
-                  borderRadius: '10px',
-                  color: '#070a14',
-                  fontSize: 13,
-                  fontWeight: 700,
-                  textDecoration: 'none',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-              View Full Profile
-              <span style={{ fontSize: 14 }}>↗</span>
-              </a>
-
-              {selected.walletAddress ? (
-                <button
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(selected.walletAddress!);
-                      setTipStatus('Wallet copied');
-                      setTimeout(() => setTipStatus(null), 1200);
-                    } catch {
-                      // ignore
-                    }
-                  }}
-                  style={{
-                    flex: 1,
-                    minWidth: 140,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    padding: '10px',
-                    background: 'rgba(255,255,255,0.10)',
-                    borderRadius: '10px',
-                    color: 'rgba(255,255,255,0.92)',
-                    fontSize: 13,
-                    fontWeight: 700,
-                    border: '1px solid rgba(255,255,255,0.14)',
-                    cursor: 'pointer',
-                  }}
-                  title="Copy wallet address"
-                >
-                  Copy wallet
-                </button>
-              ) : null}
-            </div>
-
-            {/* Tip actions (OWT) */}
-            {selected.walletAddress ? (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.85, marginBottom: 8 }}>Tip with OWT</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {[1, 5, 10].map((amt) => (
-                    <button
-                      key={amt}
-                      disabled={tipPending}
-                      onClick={async () => {
-                        const to = selected.walletAddress!;
-                        if (!isAddress(to)) {
-                          setTipStatus('Invalid wallet address');
-                          setTimeout(() => setTipStatus(null), 1600);
-                          return;
-                        }
-                        try {
-                          setTipStatus(null);
-                          if (chainId !== base.id) {
-                            await switchChainAsync({ chainId: base.id });
-                          }
-                          if (!myAddress) {
-                            setTipStatus('Connect your wallet to tip');
-                            return;
-                          }
-                          const txHash = await writeContractAsync({
-                            abi: ERC20_ABI,
-                            address: OWT_TOKEN_ADDRESS,
-                            functionName: 'transfer',
-                            args: [to, parseUnits(String(amt), 18)],
-                          });
-
-                          // local-only effects: aura + recent tips
-                          tippedUntilRef.current.set(selected.id, Date.now() + 30_000);
-                          setRecentTips((prev) => {
-                            const next = [{ id: selected.id, name: selected.name, amount: amt, txHash: String(txHash), at: Date.now() }, ...prev];
-                            return next.slice(0, 5);
-                          });
-
-                          setTipStatus(String(txHash));
-                        } catch (e: any) {
-                          setTipStatus(e?.shortMessage || e?.message || 'Tip failed');
-                        }
-                      }}
-                      style={{
-                        flex: 1,
-                        minWidth: 90,
-                        padding: '9px 10px',
-                        borderRadius: 10,
-                        background: 'rgba(245, 197, 66, 0.16)',
-                        border: '1px solid rgba(245, 197, 66, 0.32)',
-                        color: 'rgba(255,255,255,0.95)',
-                        fontSize: 12,
-                        fontWeight: 800,
-                        cursor: tipPending ? 'not-allowed' : 'pointer',
-                      }}
-                    >
-                      Tip {amt}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input
-                    value={customTip}
-                    onChange={(e) => setCustomTip(e.target.value)}
-                    inputMode="decimal"
-                    placeholder="Custom"
-                    style={{
-                      flex: 1,
-                      minWidth: 120,
-                      padding: '9px 10px',
-                      borderRadius: 10,
-                      background: 'rgba(255,255,255,0.08)',
-                      border: '1px solid rgba(255,255,255,0.14)',
-                      color: 'rgba(255,255,255,0.92)',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      outline: 'none',
-                    }}
-                  />
-                  <button
-                    disabled={tipPending}
-                    onClick={async () => {
-                      const to = selected.walletAddress!;
-                      const amt = Number(customTip);
-                      if (!Number.isFinite(amt) || amt <= 0) {
-                        setTipStatus('Enter a valid amount');
-                        return;
-                      }
-                      if (amt > 1000) {
-                        setTipStatus('Max tip is 1000 OWT');
-                        return;
-                      }
-                      if (!isAddress(to)) {
-                        setTipStatus('Invalid wallet address');
-                        return;
-                      }
-                      try {
-                        setTipStatus(null);
-                        if (chainId !== base.id) await switchChainAsync({ chainId: base.id });
-                        if (!myAddress) {
-                          setTipStatus('Connect your wallet to tip');
-                          return;
-                        }
-                        const txHash = await writeContractAsync({
-                          abi: ERC20_ABI,
-                          address: OWT_TOKEN_ADDRESS,
-                          functionName: 'transfer',
-                          args: [to, parseUnits(String(amt), 18)],
-                        });
-                        tippedUntilRef.current.set(selected.id, Date.now() + 30_000);
-                        setRecentTips((prev) => [{ id: selected.id, name: selected.name, amount: amt, txHash: String(txHash), at: Date.now() }, ...prev].slice(0, 5));
-                        setTipStatus(String(txHash));
-                      } catch (e: any) {
-                        setTipStatus(e?.shortMessage || e?.message || 'Tip failed');
-                      }
-                    }}
-                    style={{
-                      minWidth: 90,
-                      padding: '9px 10px',
-                      borderRadius: 10,
-                      background: 'rgba(245, 197, 66, 0.16)',
-                      border: '1px solid rgba(245, 197, 66, 0.32)',
-                      color: 'rgba(255,255,255,0.95)',
-                      fontSize: 12,
-                      fontWeight: 800,
-                      cursor: tipPending ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    Tip
-                  </button>
-                </div>
-
-                {tipStatus ? (
-                  <div style={{ marginTop: 8, fontSize: 11, opacity: 0.9, wordBreak: 'break-word' }}>
-                    {tipStatus.startsWith('0x') ? (
-                      <a
-                        href={`https://basescan.org/tx/${tipStatus}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ color: 'rgba(160,210,255,0.95)' }}
-                      >
-                        View tx on Basescan ↗
-                      </a>
-                    ) : (
-                      tipStatus
-                    )}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        )}
+        <AgentInspectorPanel
+          agent={selected}
+          onExternalLink={(url) => {
+            if (url === '') {
+              setSelectedId(null);
+            } else if (url) {
+              window.open(url, '_blank');
+            }
+          }}
+        />
       </div>
 
       {/* Wallet + token integration (hackathon requirement) */}
