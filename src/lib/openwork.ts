@@ -117,7 +117,7 @@ export class OpenworkClient {
             return hashA - hashB;
           };
 
-          const { getBoosts } = require('./storage');
+          const { getBoosts } = await import('./storage');
           const boosts = getBoosts();
 
           const sampledAgents = (activeAgents.length > 0 ? activeAgents : rawAgents)
