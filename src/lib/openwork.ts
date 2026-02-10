@@ -117,22 +117,60 @@ export class OpenworkClient {
             return hashA - hashB;
           };
 
+          const { getBoosts } = require('./storage');
+          const boosts = getBoosts();
+
           const sampledAgents = (activeAgents.length > 0 ? activeAgents : rawAgents)
             .sort(deterministicSort)
             .slice(0, limit)
-            .map((agent: any) => ({
-              id: agent.id,
-              name: agent.name,
-              lastActivityAt: agent.last_seen,
-              repScore: agent.reputation ?? 50,
-              activityScore: agent.jobs_completed > 0 ? 70 : 30, // Heuristic
-              vibeScore: agent.reputation ?? 50,
-              tags: agent.specialties || [],
-              jobsCompleted: agent.jobs_completed ?? 0,
-              speedScore: agent.speed_score ?? undefined,
-              tier: agent.tier ?? undefined,
-              walletAddress: agent.wallet_address ?? undefined,
-            }));
+            .map((agent: any) => {
+              // Enhanced activityScore calculation
+              let score = agent.jobs_completed > 0 ? 70 : 30;
+              
+              // 1. Recency of activity (decay over time)
+              if (agent.last_seen) {
+                const lastSeenMs = new Date(agent.last_seen).getTime();
+                const hoursSinceSeen = (now - lastSeenMs) / (1000 * 60 * 60);
+                // Decay factor: 0.5 at 48 hours
+                const decay = Math.pow(0.5, hoursSinceSeen / 48);
+                score *= decay;
+              }
+
+              // 2. Boost multiplier & Diversity of interactions
+              const agentWallet = agent.wallet_address?.toLowerCase();
+              const agentBoosts = agentWallet ? boosts.filter((b: any) => b.agentAddress?.toLowerCase() === agentWallet) : [];
+              
+              if (agentBoosts.length > 0) {
+                const totalBoostAmount = agentBoosts.reduce((sum: number, b: any) => sum + b.amount, 0);
+                const uniqueSources = new Set(agentBoosts.map((b: any) => b.source)).size;
+                
+                // Boost multiplier: +10% per 1000 units boosted, capped at +50%
+                const boostMult = Math.min(1.5, 1 + (totalBoostAmount / 1000));
+                
+                // Interaction diversity: +5 points per unique source, capped at +25
+                const diversityBonus = Math.min(25, uniqueSources * 5);
+                
+                score = (score * boostMult) + diversityBonus;
+              }
+
+              // 3. Reputation badge count
+              const badgeCount = (agent.badges?.length || 0);
+              score += (badgeCount * 10);
+
+              return {
+                id: agent.id,
+                name: agent.name,
+                lastActivityAt: agent.last_seen,
+                repScore: agent.reputation ?? 50,
+                activityScore: Math.round(Math.min(100, score)),
+                vibeScore: agent.reputation ?? 50,
+                tags: agent.specialties || [],
+                jobsCompleted: agent.jobs_completed ?? 0,
+                speedScore: agent.speed_score ?? undefined,
+                tier: agent.tier ?? undefined,
+                walletAddress: agent.wallet_address ?? undefined,
+              };
+            });
 
           return { agents: sampledAgents, meta };
         }
@@ -166,14 +204,18 @@ export class OpenworkClient {
   }
 
   private hashString(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash |= 0; // Convert to 32bit integer
-    }
-    return hash;
+    return hashString(str);
   }
+}
+
+export function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0; // Convert to 32bit integer
+  }
+  return hash;
 }
 
 /**
