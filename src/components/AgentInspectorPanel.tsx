@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { AgentNode } from '@/lib/types';
 
 interface AgentInspectorPanelProps {
@@ -6,6 +7,9 @@ interface AgentInspectorPanelProps {
 }
 
 export default function AgentInspectorPanel({ agent, onExternalLink }: AgentInspectorPanelProps) {
+  const [loading, setLoading] = useState<string | null>(null);
+  const [status, setStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
   if (!agent) {
     return (
       <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.45, textAlign: 'center', padding: '20px 15px' }}>
@@ -17,6 +21,55 @@ export default function AgentInspectorPanel({ agent, onExternalLink }: AgentInsp
       </div>
     );
   }
+
+  const handleTip = async () => {
+    setLoading('tip');
+    setStatus(null);
+    try {
+      const res = await fetch('/api/tip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: agent.id, amountOWT: '10' }),
+      });
+      const data = await res.json();
+      if (data.success && data.link) {
+        setStatus({ type: 'success', message: 'Tip intent created!' });
+        if (onExternalLink) {
+          onExternalLink(data.link);
+        } else {
+          window.open(data.link, '_blank');
+        }
+      } else {
+        setStatus({ type: 'error', message: data.error || 'Failed to create tip' });
+      }
+    } catch (err) {
+      setStatus({ type: 'error', message: 'Network error' });
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleBoost = async () => {
+    setLoading('boost');
+    setStatus(null);
+    try {
+      const res = await fetch('/api/boost', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: agent.id, amountOWT: '50', duration: '24h' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStatus({ type: 'success', message: 'Boost successful!' });
+      } else {
+        setStatus({ type: 'error', message: data.error || 'Failed to boost' });
+      }
+    } catch (err) {
+      setStatus({ type: 'error', message: 'Network error' });
+    } finally {
+      setLoading(null);
+    }
+  };
 
   const getTierColor = (tier: string) => {
     const colors: Record<string, string> = {
@@ -121,6 +174,22 @@ export default function AgentInspectorPanel({ agent, onExternalLink }: AgentInsp
           }}>
             repScore: {agent.repScore}
           </div>
+          {agent.hasOwt && (
+            <div style={{
+              padding: '4px 10px',
+              background: 'rgba(80, 230, 170, 0.2)',
+              color: '#50e6aa',
+              borderRadius: 20,
+              fontSize: 11,
+              fontWeight: 600,
+              border: '1px solid rgba(80, 230, 170, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4
+            }}>
+              <span>💎</span> Holder
+            </div>
+          )}
         </div>
       </div>
 
@@ -255,9 +324,66 @@ export default function AgentInspectorPanel({ agent, onExternalLink }: AgentInsp
         </div>
       </div>
 
-      {/* Footer */}
+      {/* Footer Actions */}
       <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 15, marginTop: 'auto' }}>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+        {status && (
+          <div style={{
+            padding: '8px 12px',
+            borderRadius: 8,
+            fontSize: 12,
+            marginBottom: 10,
+            background: status.type === 'success' ? 'rgba(76, 175, 80, 0.15)' : 'rgba(244, 67, 54, 0.15)',
+            color: status.type === 'success' ? '#81c784' : '#e57373',
+            border: `1px solid ${status.type === 'success' ? 'rgba(76, 175, 80, 0.3)' : 'rgba(244, 67, 54, 0.3)'}`
+          }}>
+            {status.message}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            onClick={handleTip}
+            disabled={loading !== null}
+            style={{
+              flex: 1,
+              padding: '10px',
+              background: 'rgba(245, 197, 66, 0.15)',
+              color: '#F5C542',
+              border: '1px solid rgba(245, 197, 66, 0.3)',
+              borderRadius: 8,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontSize: 13,
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6
+            }}
+          >
+            {loading === 'tip' ? '...' : '🪙 Tip 10 OWT'}
+          </button>
+          <button
+            onClick={handleBoost}
+            disabled={loading !== null}
+            style={{
+              flex: 1,
+              padding: '10px',
+              background: 'rgba(187, 140, 255, 0.15)',
+              color: '#BB8CFF',
+              border: '1px solid rgba(187, 140, 255, 0.3)',
+              borderRadius: 8,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontSize: 13,
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6
+            }}
+          >
+            {loading === 'boost' ? '...' : '⚡ Boost'}
+          </button>
+        </div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 10 }}>
           <button
             onClick={() => {
               // Reset selection
